@@ -36,15 +36,16 @@ enum class Language
     ChineseTraditional,
     Korean,
     Turkish,
+    Swedish,
 };
-constexpr int kLanguages = 16;
+constexpr int kLanguages = 17;
 
 /* The PS5's language (sceSystemServiceParamGetInt 1), told once at start. */
 void set_system_language(int ps5_language);
 /* setting: 0 follows the console, else Language + 1 (1 English, 2 Spanish,
  * 3 French, 4 Portuguese, 5 Italian, 6 Japanese, 7 Latin American Spanish,
  * 8 Brazilian Portuguese, 9 German, 10 Dutch, 11 Polish, 12 Russian, 13 Simplified Chinese, 14 Traditional
- * Chinese, 15 Korean, 16 Turkish). */
+ * Chinese, 15 Korean, 16 Turkish, 17 Swedish). */
 void apply_language(int setting, const std::string &override_dir = "");
 Language language();
 /* The choices for the Language setting, each in its own language. */

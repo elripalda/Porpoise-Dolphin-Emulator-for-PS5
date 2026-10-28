@@ -312,18 +312,18 @@ Settings → Audio, for every game or one (and the in-game menu's **Audio** tab)
   (Mario Party 6 and 7: hold **R3** to talk) and the Wii Speak.
 
 ### Languages
-- **Sixteen languages**, each with its flag in the language list (Chinese
+- **Seventeen languages**, each with its flag in the language list (Chinese
   with its script's character instead): English,
   Español (España), **Español (Latinoamérica)**, Français, **Deutsch**,
   Italiano, **Nederlands**, **Polski**, Português (Portugal), **Português
-  (Brasil)**, **Türkçe**, **Русский**, **日本語**, **한국어**, **简体中文** and
+  (Brasil)**, **Svenska**, **Türkçe**, **Русский**, **日本語**, **한국어**, **简体中文** and
   **繁體中文**. Porpoise follows your PS5's system
   language, and **Settings → Interface → Language** overrides it.
 - Game descriptions from GameTDB come in Spanish, French, Portuguese, Italian,
   German and Dutch too, where GameTDB has them (English otherwise).
 - The translations are first drafts, and fixes are welcome. To fix a line
   without waiting for an update, create `/data/porpoise/lang/<code>.txt` —
-  `es`, `es-419`, `fr`, `pt`, `pt-BR`, `it`, `de`, `nl`, `pl`, `ru`, `tr`,
+  `es`, `es-419`, `fr`, `pt`, `pt-BR`, `it`, `de`, `nl`, `pl`, `ru`, `sv`, `tr`,
   `ja`, `ko`, `zh-Hans` or `zh-Hant` —
   with lines such as `Quit to library = Volver a la biblioteca`. In the source,
   translations live in [`i18n/`](i18n).
