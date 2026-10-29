@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # Porpoise - draws assets/ui/flags.png, the flags beside the languages in
-# Settings > Interface > Language: sixteen 96x64 cells in a row, in the
+# Settings > Interface > Language: seventeen 96x64 cells in a row, in the
 # setting's numbering after System (porpoise::ui::Language): English (US),
 # Spanish (Spain), French, Portuguese (Portugal), Italian, Japanese, Spanish
 # (Latin America: Mexico's flag), Portuguese (Brazil), German, Dutch, Polish,
-# Russian, Chinese (Simplified), Chinese (Traditional), Korean, Turkish.
+# Russian, Chinese (Simplified), Chinese (Traditional), Korean, Turkish and
+# Swedish.
 # Simplified for a 40-pixel flag on a TV. The two Chinese scripts are read in
 # several places, so they get a plain tile with the script's own character
 # (简 / 繁, drawn from Noto Sans SC / TC) instead of a flag.
@@ -180,7 +181,15 @@ def tr(d, w, h):
     star(d, cx + r * 1.15, cy, r * 0.55, (255, 255, 255))
 
 
-FLAGS = [us, es, fr, pt, it, ja, mx, br, de, nl, pl, ru, zh_hans, zh_hant, ko, tr]
+def sv(d, w, h):
+    blue = (0, 106, 167)
+    yellow = (254, 204, 0)
+    d.rectangle([0, 0, w, h], fill=blue)
+    d.rectangle([w * 0.3, 0, w * 0.42, h], fill=yellow)
+    d.rectangle([0, h * 0.42, w, h * 0.58], fill=yellow)
+
+
+FLAGS = [us, es, fr, pt, it, ja, mx, br, de, nl, pl, ru, zh_hans, zh_hant, ko, tr, sv]
 sheet = Image.new("RGBA", (W * len(FLAGS), H), (0, 0, 0, 0))
 for i, fn in enumerate(FLAGS):
     big = Image.new("RGBA", (W * S, H * S), (0, 0, 0, 0))

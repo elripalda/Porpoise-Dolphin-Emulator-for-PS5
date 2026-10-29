@@ -6,7 +6,7 @@
  * them into ui_i18n_table.inc. They are first translations, to be read over by
  * native speakers: corrections go in /data/porpoise/lang/<code>.txt (es.txt,
  * es-419.txt, fr.txt, pt.txt, pt-BR.txt, it.txt, de.txt, nl.txt, pl.txt,
- * ru.txt, ja.txt) as "English = translation" lines and win over the table, so a
+ * ru.txt, sv.txt, ja.txt) as "English = translation" lines and win over the table, so a
  * fix needs no new build. */
 #include "ui_i18n.hpp"
 
@@ -38,7 +38,7 @@ const Entry kTable[] = {
 const char *const kSystemChoice[kLanguages] = {
     "System", "Sistema", "Syst\xC3\xA8me", "Sistema", "Sistema", "\xE6\x9C\xAC\xE4\xBD\x93\xE3\x81\xAE\xE8\xA8\xAD\xE5\xAE\x9A",
     "Sistema", "Sistema", "System", "Systeem", "Systemowy", "\xD0\xA1\xD0\xB8\xD1\x81\xD1\x82\xD0\xB5\xD0\xBC\xD0\xBD\xD1\x8B\xD0\xB9",
-    "\xE8\xB7\x9F\xE9\x9A\x8F\xE7\xB3\xBB\xE7\xBB\x9F", "\xE8\xB7\x9F\xE9\x9A\xA8\xE7\xB3\xBB\xE7\xB5\xB1", "\xEC\x8B\x9C\xEC\x8A\xA4\xED\x85\x9C \xEC\x84\xA4\xEC\xA0\x95", "Sistem"};
+    "\xE8\xB7\x9F\xE9\x9A\x8F\xE7\xB3\xBB\xE7\xBB\x9F", "\xE8\xB7\x9F\xE9\x9A\xA8\xE7\xB3\xBB\xE7\xB5\xB1", "\xEC\x8B\x9C\xEC\x8A\xA4\xED\x85\x9C \xEC\x84\xA4\xEC\xA0\x95", "Sistem", "System"};
 
 /* Each language by its own name, in Language's order. */
 const char *const kNames[kLanguages] = {
@@ -58,10 +58,11 @@ const char *const kNames[kLanguages] = {
     "\xE7\xB9\x81\xE9\xAB\x94\xE4\xB8\xAD\xE6\x96\x87", /* Chinese, Traditional */
     "\xED\x95\x9C\xEA\xB5\xAD\xEC\x96\xB4",
     "T\xC3\xBCrk\xC3\xA7" "e",
+    "Svenska",
 };
 
 /* Codes for the testers' correction files: lang/<code>.txt. */
-const char *const kCodes[kLanguages] = {"en", "es", "fr", "pt", "it", "ja", "es-419", "pt-BR", "de", "nl", "pl", "ru", "zh-Hans", "zh-Hant", "ko", "tr"};
+const char *const kCodes[kLanguages] = {"en", "es", "fr", "pt", "it", "ja", "es-419", "pt-BR", "de", "nl", "pl", "ru", "zh-Hans", "zh-Hant", "ko", "tr", "sv"};
 
 int g_system = 1; /* the PS5's language id */
 Language g_lang = Language::English;
@@ -118,6 +119,7 @@ Language from_ps5(int id)
     case 10: return Language::ChineseTraditional;
     case 9: return Language::Korean;
     case 19: return Language::Turkish;
+    case 13: return Language::Swedish;
     default: return Language::English;
     }
 }
@@ -211,7 +213,7 @@ const char *language_choice(int setting)
 const std::vector<int> &language_order()
 {
     /* As the PS5 lists them: by their own names. */
-    static const std::vector<int> order = {0, 1, 9, 2, 7, 3, 5, 10, 11, 4, 8, 16, 12, 6, 15, 13, 14};
+    static const std::vector<int> order = {0, 1, 9, 2, 7, 3, 5, 10, 11, 4, 8, 17, 16, 12, 6, 15, 13, 14};
     return order;
 }
 

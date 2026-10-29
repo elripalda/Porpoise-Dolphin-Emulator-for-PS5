@@ -19,7 +19,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # In the order of porpoise::ui::Language after English.
-LANGS = ["es", "fr", "pt", "it", "ja", "es-419", "pt-BR", "de", "nl", "pl", "ru", "zh-Hans", "zh-Hant", "ko", "tr"]
+LANGS = ["es", "fr", "pt", "it", "ja", "es-419", "pt-BR", "de", "nl", "pl", "ru", "zh-Hans", "zh-Hant", "ko", "tr", "sv"]
 THREE_FORMS = {"pl", "ru"}
 
 
