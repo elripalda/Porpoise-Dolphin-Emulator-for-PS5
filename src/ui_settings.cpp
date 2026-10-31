@@ -126,6 +126,8 @@ const Field kFields[] = {
     {"wii_online", nullptr, &Settings::wii_online, 0, 1},
     {"online_custom", nullptr, &Settings::online_custom, 0, 1},
     {"online_https", nullptr, &Settings::online_https, 0, 1},
+    {"wii_source", &Settings::wii_source, nullptr, 0, 1},
+    {"real_wiimote_speaker", nullptr, &Settings::real_wiimote_speaker, 0, 1},
     {"wii_controller", &Settings::wii_controller, nullptr, 0, 5},
     {"wii_pointer", &Settings::wii_pointer, nullptr, 0, 2},
     {"wii_speed", &Settings::wii_speed, nullptr, 0, 10},
@@ -899,6 +901,17 @@ porpoise::pad::WiiConfig Settings::wii_config(bool active, const std::string &ga
     c.bar_above = sensor_bar == 1; /* where the game is told the bar is: the pointer's lights agree */
     c.invert_x = developer && wii_invert_x; /* developer options only */
     c.invert_y = developer && wii_invert_y;
+    /* Real Wii Remotes (a DolphinBar): every port is a real Remote, which
+     * brings its own motion, pointer, MotionPlus and attachments; the
+     * DualSense's take no part (a plain Remote, so no two-controller play and
+     * no Nunchuk motion file). Only in a game: the home screen's pointer
+     * stays the DualSense's. */
+    if (active && wii_source == 1)
+    {
+        c.real_remotes = true;
+        c.controller = porpoise::pad::WiiRemote;
+        c.motion = c.shake = c.motion_plus = false;
+    }
     return c;
 }
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+**New**
+- **Real Wii Remotes through a Mayflash DolphinBar** (Settings → Wii Remote →
+  Wii Remotes → Real Wii Remotes): original Wii Remotes and Wii Remote Plus
+  controllers with the Nunchuk, Classic Controller and MotionPlus, IR,
+  rumble and speaker, for up to four players, in a USB port of the PS5.
+  See docs/DOLPHINBAR.md.
+- **Controllers & Accessories** (Settings): the DualSense controllers, the
+  DolphinBar and Wii Remotes 1–4 at a glance, a live controller test with a
+  diagnosis, and a speaker test.
+- **Porpoise's menus with a Wii Remote:** upright with a Nunchuk or sideways
+  without, with its own button prompts; HOME held for a second in a game
+  opens the in-game menu.
+- **Notices** when a Wii Remote or its Nunchuk is connected or taken off.
+
+**Fixed**
+- A game no longer crashes when a real Wii Remote is switched off in it, and
+  a Remote switched on again connects again with a button press.
+
 ## 4.0 — 2026-10-21
 
 **New**

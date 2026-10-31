@@ -1282,7 +1282,8 @@ App::Action App::start_game(Game *g, const std::string &state, bool resume_asked
             return Action::None;
         }
     }
-    if (g && g->platform == "Wii" && eff.wii_setup_ask)
+    /* Real Wii Remotes (a DolphinBar) need no DualSense set-up. */
+    if (g && g->platform == "Wii" && eff.wii_setup_ask && eff.wii_source == 0)
     {
         open_wii_setup(g, true, state);
         return Action::None;
@@ -1353,6 +1354,7 @@ void App::open_wii_setup(Game *g, bool launch, const std::string &state)
     if (g)
         eff.load(game_settings_path(*g), true);
     ws_controller_ = std::clamp(eff.wii_controller, 0, int(WiiControllerCount) - 1);
+    ws_real_ = eff.wii_source == 1;
     ws_ask_ = eff.wii_setup_ask;
     ws_step_ = kWsController;
     ws_row_ = 0;
@@ -1373,6 +1375,7 @@ void App::open_wii_setup_in_game(bool recalibrate_only)
     ws_in_game_ = true;
     ws_recal_only_ = recalibrate_only;
     ws_controller_ = std::clamp(menu_play_->wii_controller, 0, int(WiiControllerCount) - 1);
+    ws_real_ = menu_play_->wii_source == 1;
     ws_step_ = recalibrate_only ? (points(ws_controller_) ? kWsCentre : kWsHold) : kWsController;
     ws_row_ = 0;
     ws_hold_from_ = -1;
@@ -1402,6 +1405,24 @@ void App::close_wii_setup()
 
 App::Action App::update_wii_setup(bool up, bool down, bool left, bool right)
 {
+    if (ws_real_)
+    {
+        /* Real Wii Remotes: a page to read; back with Circle or Cross, or
+         * Triangle for the DualSense's own setup (for when it plays the Wii
+         * Remote again). */
+        if (pressed(BtnTriangle))
+        {
+            sfx(Sound::DetailsFlip);
+            ws_real_ = false;
+            wii_setup_apply_pad();
+        }
+        else if (pressed(BtnCircle | BtnCross))
+        {
+            sfx(Sound::DetailsFlip);
+            close_wii_setup();
+        }
+        return Action::None;
+    }
     const Motion m = porpoise::pad::snapshot(0).motion;
     const float turning = std::sqrt(m.gyro[0] * m.gyro[0] + m.gyro[1] * m.gyro[1] + m.gyro[2] * m.gyro[2]);
     const bool pointing = points(ws_controller_);
@@ -1699,6 +1720,11 @@ App::Action App::update_wii_setup(bool up, bool down, bool left, bool right)
 
 void App::draw_wii_setup(double time)
 {
+    if (ws_real_)
+    {
+        draw_real_remote_setup(time);
+        return;
+    }
     Gfx &g = *g_;
     g.panel(0, 0, 1920, 1080, rgba(0x02040C, 0.93f), 1, 0);
     const bool pointing = points(ws_controller_);

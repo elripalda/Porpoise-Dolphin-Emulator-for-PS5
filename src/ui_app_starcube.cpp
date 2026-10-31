@@ -923,6 +923,8 @@ void App::draw_starcube(double time)
             draw_tile_art(time);
         else if (screen_ == Screen::Shots)
             draw_shots(time);
+        else if (screen_ == Screen::Controllers)
+            draw_controllers(time);
         else if (screen_ == Screen::GameSettings)
             draw_settings();
         else if (screen_ == Screen::Mapping)

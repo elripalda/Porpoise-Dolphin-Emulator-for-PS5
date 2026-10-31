@@ -73,6 +73,7 @@ struct Input
     std::uint32_t held = 0;
     float stick_x = 0, stick_y = 0; /* -1..1 */
     float right_x = 0, right_y = 0; /* the right stick, -1..1 */
+    std::uint32_t wii = 0;          /* the menu Wii Remote's buttons as the DualSense's (wii_menu_bits) */
 };
 
 /* The launcher's sounds; the host plays them (App only says when). */
@@ -106,6 +107,11 @@ struct TexturePack
     bool counted = false;
 };
 
+/* The menu Wii Remote's buttons (and its Nunchuk's, in the menus) as the
+ * DualSense's: D-pad, A Cross, B Circle, + R1, - L1, 1 Triangle, 2 R2; C Options,
+ * Z Square, the stick the D-pad. */
+std::uint32_t wii_menu_bits(std::uint16_t remote_buttons);
+
 class App
 {
 public:
@@ -138,6 +144,15 @@ public:
     void init(Gfx *gfx, Library *library, Settings *settings, const std::string &settings_path,
               const std::string &options_path, const std::string &saves_dir);
     Action update(const Input &in, double dt);
+    /* tools/ui-preview: Controllers & Accessories with a device chosen, or its
+     * settings section (section = true). */
+    void preview_controllers(int select, bool section);
+    void preview_real_remote_setup() /* the UI preview: Wii Remote Setup with real Wii Remotes */
+    {
+        ws_real_ = true;
+        ws_game_ = nullptr;
+        screen_ = Screen::WiiSetup;
+    }
     void draw(double time);
 
     Game *launch_game() { return launch_; }
@@ -513,6 +528,7 @@ private:
         Achievements, /* a game's RetroAchievements, from its Details (Square) */
         TileArt,      /* a game's home screen tile art (its settings > Home screen) */
         Shots,        /* screenshots: every game's (Settings) or one game's (Details) */
+        Controllers,  /* Controllers & Accessories: the DualSense, the DolphinBar, Wii Remotes 1-4 (ui_app_controllers.cpp) */
     };
     struct SettingRow
     {
@@ -533,6 +549,7 @@ private:
         bool rescan = false; /* changing it searches the library again */
         bool beta = false;   /* a BETA badge after the label */
         bool alpha = false;  /* with beta: the badge says ALPHA (3.1's frame generation) */
+        int live = -1;       /* Controllers & Accessories: its value is what that device does now (0 DualSense, 1 DolphinBar, 2-5 Wii Remote 1-4) */
     };
     enum class DialogKind
     {
@@ -1328,6 +1345,16 @@ private:
     std::vector<ShotItem> find_shots(const std::string &game_key) const; /* "" every game's; newest first */
     int count_shots(const Game &game) const;
     void open_shots(const std::string &game_key, Screen back_to);
+    /* Controllers & Accessories (ui_app_controllers.cpp). */
+    void open_controllers(int select);
+    Action update_controllers(bool up, bool down, bool left, bool right);
+    void draw_controllers(double time);
+    std::string controller_row_value(int which, std::string *help) const;
+    void refresh_controller_rows();
+    int ctl_sel_ = 1;
+    Screen ctl_back_ = Screen::Main;
+    std::string ctl_diag_logged_;
+    int ctl_spk_slot_ = 0, ctl_spk_tone_ = 0; /* the speaker test: which Remote, which signal */
     Action update_shots(bool left, bool right, bool up, bool down);
     void draw_shots(double time);
     void delete_shot();
@@ -1366,6 +1393,7 @@ private:
     void open_wii_setup(Game *g, bool launch, const std::string &state);
     Action update_wii_setup(bool up, bool down, bool left, bool right);
     void draw_wii_setup(double time);
+    void draw_real_remote_setup(double time); /* ui_app_controllers.cpp */
     void wii_setup_apply_pad();
     void close_wii_setup();
     Settings &ws_settings();
@@ -1387,6 +1415,7 @@ private:
     bool ws_launch_ = false;
     bool ws_in_game_ = false;    /* over the paused game */
     bool ws_recal_only_ = false; /* the pause menu's "recalibrate": centre, corners, try */
+    bool ws_real_ = false;       /* real Wii Remotes (DolphinBar): nothing to set up, how to hold them */
     bool ws_ask_ = true; /* the setup's game: offer the setup before it starts */
     int ws_row_ = 0;
     int ws_size_mode_ = 0;       /* 0 corners, 1 size and distance */
@@ -1556,6 +1585,10 @@ private:
 
     std::uint32_t held_ = 0, prev_ = 0;
     std::uint32_t raw_held_ = 0, raw_prev_ = 0; /* the buttons alone, without the stick as a D-pad */
+    /* Whichever was pressed last, the Wii Remote or the DualSense, has its
+     * buttons in the prompts (Gfx::set_wii_buttons). */
+    std::uint32_t wii_prev_ = 0;
+    void follow_last_controller(std::uint32_t pad_held, std::uint32_t wii_held, bool remote_there = true);
     float rep_left_ = 0, rep_right_ = 0, rep_up_ = 0, rep_down_ = 0;
     double nav_held_ = 0; /* how long a direction has been held in the library (speeds it up) */
     float lib_rep_l2_ = 0, lib_rep_r2_ = 0; /* the library's L2 / R2 letter jumps (not Details' timers) */
@@ -1570,4 +1603,8 @@ private:
     float launch_from_[4] = {0, 0, 0, 0};
     bool launch_from_ok_ = false;
 };
+/* Real Wii Remotes connecting and disconnecting (ui_wiimote_notices.cpp):
+ * over the menus and over a game. */
+void draw_wiimote_notices(Gfx &g);
+
 } // namespace porpoise::ui

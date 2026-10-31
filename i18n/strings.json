@@ -6120,6 +6120,22 @@
   "section": "3.0 Alpha 1: MotionPlus, online play"
  },
  {
+  "en": "Wii Remotes",
+  "section": "3.0 Alpha 1: MotionPlus, online play"
+ },
+ {
+  "en": "DualSense",
+  "section": "3.0 Alpha 1: MotionPlus, online play"
+ },
+ {
+  "en": "Real Wii Remotes (DolphinBar)",
+  "section": "3.0 Alpha 1: MotionPlus, online play"
+ },
+ {
+  "en": "DualSense: your controller plays the Wii Remote. Real Wii Remotes: original Wii Remotes and Wii Remote Plus through a Mayflash DolphinBar (mode 4) in a USB port, up to four, with their own Nunchuk, Classic Controller, MotionPlus, pointer and motion; the DualSense still opens Porpoise's menu. A Remote is found when it's connected to the DolphinBar. Applies when the game starts or this changes.",
+  "section": "3.0 Alpha 1: MotionPlus, online play"
+ },
+ {
   "en": "DNS Server for Online Play",
   "section": "3.0 Alpha 1: MotionPlus, online play"
  },
@@ -7210,5 +7226,605 @@
  {
   "en": "The GameCube controller port your controller is in. For the few games that want it in another port for a moment (Metal Gear Solid: The Twin Snakes); change it from the in-game menu while playing. GameCube games only.",
   "section": "4.0 Beta 2: simpler Settings, Auto Boost, Star Cube, Smooth Edges, Player 1's Port"
+ },
+ {
+  "en": "Controllers & Accessories",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Controller Test & Diagnostics",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Every controller and accessory, what it's doing now, a live test of its buttons, sticks, motion and IR pointer, and what to do when something doesn't work. No game needed.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Mayflash DolphinBar W010",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Mayflash DolphinBar",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote 1",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote 2",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote 3",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote 4",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote {n}",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The DualSense controllers on the console. Cross opens their live test.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The Mayflash DolphinBar (USB 057E:0306, mode 4). Cross opens its details and the diagnosis.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "A Wii Remote through the DolphinBar, with its attachment (Nunchuk, Classic Controller, MotionPlus). Cross opens its live test.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "1 connected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "{n} connected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "{node} · USB {vid}:{pid} · {n} interfaces. Cross opens the test and the diagnosis.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "USB device found, access refused",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Not connected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Not checked yet",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "USB device detected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "USB access failed",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Ready",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "In use by the game",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "No DolphinBar",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Interface not opened",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Waiting for an answer",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Disconnected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Connected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Not recognized",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Nunchuk",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii MotionPlus + Nunchuk",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii MotionPlus + Classic Controller",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Other attachment",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "DolphinBar not found: plug it into a USB port of the PS5, set to mode 4.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "A USB device ({node}) is there, but access was refused (error {errno}). It could be the DolphinBar.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The DolphinBar is there, but its HID interfaces could not be opened (access refused).",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "HID interface {n} not opened (error {errno}).",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote {n}: the DolphinBar takes data for it, but the Remote doesn't answer.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote {n}: no input packets received for a while.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote {n}: attachment not recognized. Plug it in again, then press Triangle.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The console's own driver uses interface {n}: inputs may go missing.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "No Wii Remote connected: press a button on a Remote paired with the DolphinBar, or pair it (the DolphinBar's sync button, then 1 + 2).",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "1 DualSense",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "{n} DualSense controllers",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "1 Wii Remote",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "{n} Wii Remotes",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remotes in games",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Player {n}",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Live test (player 1)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Down",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Left",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Right",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The DualSense keeps opening Porpoise's menu (Options + touch pad), also with real Wii Remotes.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "USB device",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "expected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "found",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Node",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Product name",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "(none)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Descriptors",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "read from the device",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "not readable: the usual layout is assumed",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Firmware version",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "not readable over USB",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Interfaces",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Interface {n}",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "system driver attached",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "no system driver",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "open",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "closed",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "1 packet",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "{n} packets",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Plug the Mayflash DolphinBar into a USB port of the PS5 and set it to mode 4 (Wii Remote mode). It shows up here by itself.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Diagnosis",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "No problem found.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The DolphinBar isn't ready (see Mayflash DolphinBar W010).",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Its HID interface could not be opened (error {errno}).",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The DolphinBar takes data for this slot, but the Remote hasn't answered yet.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "It was connected and has stopped answering (switched off, out of range or the batteries are flat). It's found again by itself.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "No Remote in this slot. Turn on a Remote paired with the DolphinBar (any button), or pair one: the DolphinBar's sync button, then 1 + 2 on the Remote. The slot is the player LED it lights.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Battery {p} %",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "low",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Battery: not reported yet",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Attachment",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Waiting for the attachment's data…",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Plug it in firmly, then press Triangle to look again.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Plug in a Nunchuk or Classic Controller: it's recognized by itself.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Tilt (pitch / roll)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "IR pointer",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "1 light seen",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "{n} lights seen",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "camera off",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Point the Remote at the DolphinBar",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Yaw",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Roll",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Pitch",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Waiting for its data…",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii MotionPlus found",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "A game can have its own choice in its settings (Wii Remote).",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Rumble",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Check Again",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote {n}: disconnected (switched off, out of range or flat batteries). It is found again by itself.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Not found (USB access refused to some devices)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Identifying the attachment…",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Reading what's plugged in…",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "no answer",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "not sent",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "error {e}",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote {n}: the attachment doesn't answer ({why}). Plug it in again, then press Triangle.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The attachment doesn't answer ({why}). Plug it in firmly, then press Triangle to look again.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "An attachment this test doesn't show (id {id}). It may still work in games.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Remote {n}: not connected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Playing",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Choose a connected Wii Remote with left and right. The test plays short tones through its own speaker, in the format a Wii sends.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Speaker",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Set-up",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "not acknowledged by the Remote",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Test signal",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Format",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "4-bit ADPCM, 3000 Hz, 20 bytes a packet, 75 packets a second",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Last test signal",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "None played yet.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Audio packets",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "{ok} sent, {bad} refused",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Rate (75 / s expected)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Interval min / avg / max (13.3 ms expected)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Slowest USB write",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Low tone (440 Hz)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Middle tone (660 Hz)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "High tone (880 Hz)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Four notes (C E G C)",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "input {in} ago, output {out} ago, writes {ok} ok / {bad} failed / {re} retried, read errors {re2}, reads restarted {rs}, slowest write {ms} ms",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Signal",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "On / Off",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Real Wii Remote Speakers",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "The speakers of real Wii Remotes (DolphinBar), in games and the speaker test. Off: no sound data is sent to them at all. The TV's sound and the DualSense's speaker stay as they are.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Real Wii Remote Speakers is off in the settings (Controllers & Accessories): nothing is sent to the speakers.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Controller Port {n} connected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Controller Port {n} disconnected",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Controller Port {n}: {what} plugged in",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Controller Port {n}: {what} pulled out",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Controller Port {n}: attachment plugged in",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Wii Controller Port {n}: attachment pulled out",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "With a Nunchuk",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Without a Nunchuk",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Connected now",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Hold the Remote upright and point it at the screen, the Nunchuk in your other hand.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Hold the Remote sideways, the D-pad on the left, when the game asks for it.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Real Wii Remotes need no setting up here: the game sees what's plugged in and how the Remote is held, as on a Wii.",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "DualSense Setup",
+  "section": "4.1: Controllers & Accessories, the DolphinBar"
  }
 ]
