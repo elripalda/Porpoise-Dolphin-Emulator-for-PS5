@@ -249,6 +249,10 @@ std::vector<Row> rows_for(int tab, Settings &p, bool wii = false, const Patches 
         if (wii)
         {
             /* The Wii Remote: put right while playing. */
+            r.push_back({Kind::Int, "wii_source", "Wii Remotes", &p.wii_source, nullptr, 0,
+                         {"DualSense", "Real Wii Remotes (DolphinBar)"}});
+            r.push_back({Kind::Bool, "real_wiimote_speaker", "Real Wii Remote Speakers", nullptr,
+                         &p.real_wiimote_speaker, 0, {"Off", "On"}});
             r.push_back({Kind::Customize, "wii_recal", "Recalibrate the Pointer"});
             r.push_back({Kind::Customize, "wii_setup", "Wii Remote Setup"});
             {
@@ -619,7 +623,8 @@ int App::update_game_menu(const Input &in, double dt)
 {
     time_ += dt;
     prev_ = held_;
-    held_ = in.held;
+    follow_last_controller(in.held, in.wii);
+    held_ = in.held | in.wii;
     raw_prev_ = raw_held_;
     raw_held_ = in.held;
     if (in.stick_y < -0.55f) held_ |= BtnUp;

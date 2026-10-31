@@ -20,11 +20,14 @@
 #include "porpoise_ra.hpp"
 #include "porpoise_speaker.hpp"
 #include "porpoise_states.hpp"
+#include "porpoise_dolphinbar.hpp"
+#include "porpoise_usbhid.hpp"
 
 #include <ps5platform/libc.h>
 
 #include <atomic>
 #include <algorithm>
+#include <chrono>
 #include <cerrno>
 #include <cmath>
 #include <cstdarg>
@@ -141,6 +144,7 @@ struct Host
     long long motion_log_bytes = 0;
     unsigned long long frame_number = 0;
     bool plugged[porpoise::pad::kMaxPlayers] = {}; /* GameCube ports with a controller in */
+    bool ports_real = false; /* the ports were given real Wii Remotes (WiiConfig::real_remotes) */
     /* 4.0: player 1's GameCube port (Settings > Controls); the player whose
      * port that is takes port 1. Wii games keep 0. */
     std::atomic<int> p1_port_want{0};
@@ -776,11 +780,31 @@ float RETRO_CALLCONV get_sensor_input(unsigned port, unsigned id)
     }
 }
 
+/* ---- real Wii Remotes (a DolphinBar) --------------------------------------------------
+ * The Dolphin core's Wii Remote scanner and each Remote's threads call the
+ * title's hidapi (porpoise_usbhid.cpp). What it finds and loses goes to
+ * /data/porpoise/dolphinbar.log (porpoise_dolphinbar.cpp), a file of its own:
+ * those threads outlive the core's log. /data/porpoise/dolphinbar-detach (an
+ * empty file the player makes) has the console's driver detached from the
+ * DolphinBar's interfaces, should it have them; nothing does that unasked. */
+void dolphinbar_log(const char *line) { porpoise::dolphinbar::log("%s", line); }
+
+void start_dolphinbar_log()
+{
+    porpoise::dolphinbar::route_usbhid_log();
+    const bool detach = access(PORPOISE_DATA "/dolphinbar-detach", F_OK) == 0;
+    porpoise::usbhid::set_detach_kernel_driver(detach);
+    dolphinbar_log(detach ? "Porpoise: real Wii Remotes; the console's driver is detached from the DolphinBar "
+                            "(dolphinbar-detach)"
+                          : "Porpoise: real Wii Remotes");
+}
 /* Which device each port gets: GameCube pads, or the chosen Wii controller. */
 unsigned port_device(int)
 {
     if (!h.wii.active)
         return RETRO_DEVICE_JOYPAD;
+    if (h.wii.real_remotes)
+        return porpoise::pad::kRealWiiRemoteDevice;
     return h.wii.motion_plus ? porpoise::pad::wii_device_with_motion_plus(h.wii.controller)
                              : porpoise::pad::wii_device(h.wii.controller);
 }
@@ -1201,7 +1225,10 @@ void set_wii(const porpoise::pad::WiiConfig &config)
 {
     if (!h.wii.active)
         return;
-    const bool device_changed = config.controller != h.wii.controller || config.motion_plus != h.wii.motion_plus;
+    const bool device_changed = config.controller != h.wii.controller || config.motion_plus != h.wii.motion_plus ||
+                                config.real_remotes != h.wii.real_remotes;
+    if (config.real_remotes && !h.wii.real_remotes)
+        start_dolphinbar_log();
     /* (the same device for the GameCube controller either way: re-plugged all the same, harmlessly) */
     h.wii = config;
     h.wii.active = true;
@@ -1493,10 +1520,25 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
     {
         ~ForgetHooks() { g_run_hooks = nullptr; }
     } forget_hooks;
+    /* The menus' controller test lets go of the DolphinBar before Dolphin can
+     * look for Wii Remotes, and may have it again once the game has ended. */
+    porpoise::dolphinbar::hold_for_game();
+    /* A real Wii Remote's HOME held for a second: the in-game menu. */
+    porpoise::usbhid::set_home_menu(true);
+    struct ReleaseDolphinBar
+    {
+        ~ReleaseDolphinBar()
+        {
+            porpoise::usbhid::set_home_menu(false);
+            porpoise::dolphinbar::release_after_game();
+        }
+    } release_dolphinbar;
     status("Loading Dolphin");
     mkdir(PORPOISE_APP "/porpoise", 0777);
     mkdir(paths.saves, 0777);
     h.log = std::fopen(paths.log, "w");
+    if (h.wii.real_remotes)
+        start_dolphinbar_log();
 
     ps5::debug::mark(game_path);
     {
@@ -1597,10 +1639,14 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
     {
         const bool two = h.wii.active && h.wii.controller == porpoise::pad::WiiTwoControllers;
         const int player = player_of(unsigned(port));
-        h.plugged[port] = player == 0 || (porpoise::pad::connected(player) && !two);
+        /* Real Wii Remotes: all four ports wait for one, whoever has a DualSense. */
+        h.plugged[port] = player == 0 || (porpoise::pad::connected(player) && !two) || h.wii.real_remotes;
         if (h.plugged[port])
             h.api.set_controller_port_device(unsigned(port), port_device(port));
     }
+    h.ports_real = h.wii.real_remotes;
+    if (h.wii.real_remotes && h.log)
+        std::fprintf(h.log, "[porpoise] real Wii Remotes in every port (DolphinBar)\n");
     if (h.wii.active && h.log)
         std::fprintf(h.log,
                      "[porpoise] Wii controller %d, pointer %d, grip %d, motion %s, shake %s, speed %d, screen %.1f x "
@@ -1663,6 +1709,11 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
     ps5::debug::mark("core: context_reset done; running");
     /* Only now, with no early way out left before the game runs: the thread
      * must stop before the core goes (it does, after the loop). */
+    /* Real Wii Remotes Dolphin connects to or takes off the game's ports (the
+     * patched core keeps them): the notices, and dolphinbar.log. */
+    using TakeWiimoteEvent = int (*)(int *, int *);
+    const auto take_wiimote_event =
+        reinterpret_cast<TakeWiimoteEvent>(ps5_core_dlsym(h.library, "porpoise_take_wiimote_event"));
     if (playback.controller_speakers)
     {
         /* The patched core hands each Remote's sound over; an older core
@@ -1765,6 +1816,18 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
     for (;;)
     {
         const porpoise::pad::State &pad = porpoise::pad::poll();
+        for (int port = 0, connected = 0; take_wiimote_event && take_wiimote_event(&port, &connected);)
+        {
+            porpoise::dolphinbar::push_notice(port + 1, connected != 0);
+            porpoise::dolphinbar::log("Dolphin: a real Wii Remote %s the game's port %d", connected ? "connected to" : "taken off", port + 1);
+        }
+        {
+            /* An attachment plugged into or out of a real Remote: a notice. */
+            int iface = 0;
+            bool plugged = false;
+            while (porpoise::usbhid::take_attachment_event(iface, plugged))
+                porpoise::dolphinbar::push_attachment_notice(iface + 1, plugged, "");
+        }
         publish_frame_pads();
         log_motion();
         /* A controller that joins mid-game is plugged into its GameCube port. */
@@ -1795,8 +1858,9 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
                 if (h.log)
                     std::fprintf(h.log, "[porpoise] player %d joined\n", port + 1);
             }
-        /* Options + touch pad: the in-game menu, which pauses the game. */
-        const bool combo = pad.ps_menu_combo;
+        /* Options + touch pad, or a real Wii Remote's HOME held: the in-game
+         * menu, which pauses the game. */
+        const bool combo = pad.ps_menu_combo || porpoise::usbhid::take_home_hold();
         const bool combo_pressed = combo && !combo_was;
         combo_was = combo;
         if (h.hold_input && pad.buttons == 0)
@@ -1976,8 +2040,15 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
              * controller is its Nunchuk, not a second Remote. */
             h.wii_changed = false;
             const bool two = h.wii.active && h.wii.controller == porpoise::pad::WiiTwoControllers;
+            /* Real Wii Remotes: every port takes one. Back to the DualSense
+             * from them: the ports without a controller are emptied. */
+            const bool was_real = h.ports_real;
+            h.ports_real = h.wii.real_remotes;
             for (int port = 1; port < porpoise::pad::kMaxPlayers; ++port)
-                if (two && h.plugged[port])
+                if (h.wii.real_remotes)
+                    h.plugged[port] = true; /* given its device below */
+                else if (h.plugged[port] &&
+                         (two || (was_real && !porpoise::pad::connected(player_of(unsigned(port))))))
                 {
                     h.api.set_controller_port_device(unsigned(port), RETRO_DEVICE_NONE);
                     h.plugged[port] = false;
@@ -2234,10 +2305,16 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
         h.hw.context_destroy();
     /* An unlock still on its way gets a few seconds before the game goes. */
     porpoise::ra::finish_game(h.library, 5000);
+    if (h.ports_real)
+        dolphinbar_log(("Porpoise: the game ends; what was seen:\n" + porpoise::usbhid::describe()).c_str());
     h.api.unload_game();
     porpoise::ra::end_game();
+    if (h.ports_real)
+        dolphinbar_log("Porpoise: the game is unloaded, Dolphin closes (its Wii Remote threads end)");
     h.api.deinit();
     unload_core();
+    if (h.ports_real)
+        dolphinbar_log("Porpoise: Dolphin closed");
     ps5::debug::mark("core: game closed");
     if (h.log)
         std::fclose(h.log);

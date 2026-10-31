@@ -1952,6 +1952,55 @@ void Gfx::icon(Icon i, float cx, float cy, float size, Color c)
 
 void Gfx::glyph(Glyph g, float cx, float cy, float size, Color c, float rotation)
 {
+    /* A Wii Remote works the menus: its button for the DualSense's, as a ring
+     * with its name (ui_app.cpp wii_menu_bits has the same pairs). */
+    if (wii_buttons_)
+    {
+        const char *label = nullptr;
+        if (wii_sideways_)
+            switch (g)
+            {
+            case Glyph::Cross: label = "1"; break;
+            case Glyph::Circle: label = "2"; break;
+            case Glyph::Triangle: label = "A"; break;
+            case Glyph::Square: label = "B"; break;
+            /* what the sideways Remote lacks, with B held (wii_menu_bits) */
+            case Glyph::Options: label = "B+1"; break;
+            case Glyph::L2: label = "B+-"; break;
+            case Glyph::R2: label = "B+2"; break;
+            default: break;
+            }
+        if (!label)
+        switch (g)
+        {
+        case Glyph::Cross: label = "A"; break;
+        case Glyph::Circle: label = "B"; break;
+        case Glyph::Triangle: label = "1"; break;
+        case Glyph::Square: label = "Z"; break;
+        case Glyph::Options: label = "C"; break;
+        case Glyph::L1: label = "-"; break; /* the font has no minus sign */
+        case Glyph::R1: label = "+"; break;
+        case Glyph::L2:
+        case Glyph::R2: label = "2"; break;
+        case Glyph::DPad:
+        {
+            /* The Wii Remote's: one whole cross. */
+            const float len = size * 0.8f, arm = size * 0.28f, r = arm * 0.25f;
+            panel(cx - len * 0.5f, cy - arm * 0.5f, len, arm, c, 1, r);
+            panel(cx - arm * 0.5f, cy - len * 0.5f, arm, len, c, 1, r);
+            return;
+        }
+        default: break;
+        }
+        if (label)
+        {
+            const float d = size * 0.82f;
+            panel(cx - d * 0.5f, cy - d * 0.5f, d, d, Color{c.r, c.g, c.b, 0}, 1, d * 0.5f, c,
+                  std::max(1.5f, size * 0.07f));
+            text_mid(Font::Bold, d * (std::strlen(label) > 1 ? 0.34f : 0.68f), cx, cy, c, Align::Center, label);
+            return;
+        }
+    }
     /* The DualSense's buttons come from the icon atlas when it is there; a
      * face button's ring is drawn the size the old glyph was. */
     if (icons_)

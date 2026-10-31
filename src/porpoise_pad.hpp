@@ -193,6 +193,11 @@ struct WiiConfig
      * (Zack & Wiki's top quarter was out of reach). */
     float range = 1.0f;
     bool bar_above = false; /* Settings > Console > Sensor Bar: the bar above the TV (else below) */
+    /* Settings > Wii Remote > Wii Remotes: real ones through a Mayflash
+     * DolphinBar (porpoise_usbhid.hpp) in every port, not the DualSense. The
+     * Remote's buttons, motion, pointer and attachments are then the real
+     * Remote's own; the DualSense still opens Porpoise's menu. */
+    bool real_remotes = false;
     /* Porpoise's own home screen points with it (the Revolution look): R1 and
      * L1 stay menu buttons, centre_now() centres. */
     bool menu = false;
@@ -223,6 +228,9 @@ int expected_pose(const WiiConfig &config, bool second = false);
 
 /* The libretro device a Wii game's port gets for a WiiController. */
 unsigned wii_device(int controller);
+/* The Dolphin core's real Wii Remote (Input.cpp: RETRO_DEVICE_REAL_WIIMOTE):
+ * the port's Remote is a real one, found by Dolphin's scanner. */
+constexpr unsigned kRealWiiRemoteDevice = (6u << 8) | 0u /* RETRO_DEVICE_NONE */;
 /* The core's device for the controller with a Wii MotionPlus on it (the same
  * when the controller can't take one). */
 unsigned wii_device_with_motion_plus(int controller);

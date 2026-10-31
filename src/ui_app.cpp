@@ -7,6 +7,8 @@
  * share is in ui_app_common.hpp. */
 #include "porpoise_states.hpp"
 #include "ui_widescreen.hpp"
+#include "porpoise_dolphinbar.hpp"
+#include "porpoise_usbhid.hpp"
 #include "ui_app.hpp"
 
 #include <pthread.h>
@@ -363,11 +365,105 @@ bool App::nav(std::uint32_t bit, float &timer, double dt)
     return false;
 }
 
+/* The menu Wii Remote's buttons as the DualSense's (Porpoise's own menus only):
+ * the D-pad navigates, A confirms (Cross), B goes back (Circle), + and - are
+ * Triangle and Square (each screen's extra actions), 1 and 2 are L1 and R1
+ * (the tabs). HOME does nothing here: it never reaches the console's own
+ * menu, which only the PS button opens. */
+std::uint32_t wii_menu_bits(std::uint16_t b)
+{
+    namespace db = porpoise::dolphinbar;
+    using namespace porpoise::pad;
+    std::uint32_t out = 0;
+    if (db::menu_sideways())
+    {
+        /* Held sideways, the D-pad on the left: its Up points left. 1
+         * confirms and 2 goes back; A Sort & Filter; + and - the tabs.
+         * B is a shift for what the sideways Remote lacks: B + 1 Options
+         * (Favorite, Done), B + 2 R2, B + - L2; B alone, let go without
+         * another, Square (Details, Apply) for that frame. */
+        static bool b_was = false, b_chord = false;
+        const bool b_now = b & db::RbB;
+        if (b & db::RbUp) out |= BtnLeft;
+        if (b & db::RbDown) out |= BtnRight;
+        if (b & db::RbLeft) out |= BtnDown;
+        if (b & db::RbRight) out |= BtnUp;
+        if (b & db::RbA) out |= BtnTriangle;
+        if (b_now)
+        {
+            if (!b_was)
+                b_chord = false;
+            if (b & db::RbOne) out |= BtnOptions;
+            if (b & db::RbTwo) out |= BtnR2;
+            if (b & db::RbMinus) out |= BtnL2;
+            if (b & (db::RbOne | db::RbTwo | db::RbMinus | db::RbPlus | db::RbA | db::RbUp | db::RbDown |
+                     db::RbLeft | db::RbRight))
+                b_chord = true;
+        }
+        else
+        {
+            if (b_was && !b_chord)
+                out |= BtnSquare;
+            if (b & db::RbOne) out |= BtnCross;
+            if (b & db::RbTwo) out |= BtnCircle;
+            if (b & db::RbMinus) out |= BtnL1;
+        }
+        if (b & db::RbPlus) out |= BtnR1;
+        b_was = b_now;
+        return out;
+    }
+    if (b & db::RbUp) out |= BtnUp;
+    if (b & db::RbDown) out |= BtnDown;
+    if (b & db::RbLeft) out |= BtnLeft;
+    if (b & db::RbRight) out |= BtnRight;
+    if (b & db::RbA) out |= BtnCross;   /* confirm */
+    if (b & db::RbB) out |= BtnCircle;  /* back */
+    if (b & db::RbPlus) out |= BtnR1;   /* the next tab or page */
+    if (b & db::RbMinus) out |= BtnL1;  /* the one before */
+    if (b & db::RbOne) out |= BtnTriangle; /* Sort & Filter */
+    if (b & db::RbTwo) out |= BtnR2;    /* R2's things: GameCube or Wii saves, the next page */
+    /* HOME: nothing */
+    const db::MenuNunchuk nc = db::menu_nunchuk();
+    if (nc.present)
+    {
+        if (nc.c) out |= BtnOptions; /* Favorite */
+        if (nc.z) out |= BtnSquare;  /* Details */
+        if (nc.x < -0.55f) out |= BtnLeft;
+        if (nc.x > 0.55f) out |= BtnRight;
+        if (nc.y > 0.55f) out |= BtnUp;
+        if (nc.y < -0.55f) out |= BtnDown;
+    }
+    return out;
+}
+void App::follow_last_controller(std::uint32_t pad_held, std::uint32_t wii_held, bool remote_there)
+{
+    bool wii = g_->wii_buttons();
+    if (wii_held & ~wii_prev_)
+        wii = true;
+    if (pad_held & ~raw_held_) /* raw_held_ is still the last frame's */
+        wii = false;
+    if (!remote_there)
+        wii = false; /* the Wii Remote is gone */
+    wii_prev_ = wii_held;
+    g_->set_wii_buttons(wii);
+    g_->set_wii_sideways(wii && porpoise::dolphinbar::menu_sideways());
+}
+
 App::Action App::update(const Input &in, double dt)
 {
     time_ += dt;
     prev_ = held_;
     held_ = in.held;
+    /* The menu Wii Remote beside the DualSense (not on the controller test,
+     * where its buttons are what's being tested). */
+    if (screen_ != Screen::Controllers)
+    {
+        const std::uint32_t wii = wii_menu_bits(porpoise::dolphinbar::menu_buttons());
+        follow_last_controller(in.held, wii, porpoise::dolphinbar::menu_remote() >= 0);
+        held_ |= wii;
+    }
+    else
+        follow_last_controller(in.held, 0, porpoise::dolphinbar::menu_remote() >= 0);
     raw_prev_ = raw_held_;
     raw_held_ = in.held;
     stick_x_ = in.stick_x;
@@ -395,6 +491,18 @@ App::Action App::update(const Input &in, double dt)
     auto &games = lib_->games();
     Action action = Action::None;
     home_pad_sync(); /* the Revolution look's pointer */
+    /* The DolphinBar in the menus: the menu Remote (light), or everything for
+     * Controllers & Accessories (full); never while a game has it
+     * (porpoise_dolphinbar.hpp). And the setting for the Remotes' speakers. */
+    porpoise::dolphinbar::monitor(true);
+    /* Full only on the test screen itself: the Settings section shows what
+     * the light set-up knows too, and switching the Remote over (its
+     * MotionPlus on and off, other reports) each time the section came into
+     * view held up the menu Remote's input (a PS5 test). */
+    porpoise::dolphinbar::set_full_detail(screen_ == Screen::Controllers);
+    porpoise::usbhid::set_speaker_enabled(settings_->real_wiimote_speaker);
+    if (tab_ == Tab::Settings && screen_ == Screen::Main)
+        refresh_controller_rows();
     poll_texture_packs(); /* Settings > Textures: the packs' counts, when counted */
     if (update_nand_job())
         return Action::None; /* a Wii's system data being imported: the menus wait */
@@ -499,6 +607,8 @@ App::Action App::update(const Input &in, double dt)
         return update_states(left, right);
     if (screen_ == Screen::Shots)
         return update_shots(left, right, up, down);
+    if (screen_ == Screen::Controllers)
+        return update_controllers(up, down, left, right);
     if (screen_ == Screen::Sort)
     {
         /* Sort & filter: the order, which games, covers and info now. Changes
@@ -1621,6 +1731,13 @@ void App::draw_top_bar()
 float App::draw_key_pair(float x, float cy, Glyph which, bool measure_only)
 {
     Gfx &g = *g_;
+    if (which == kKeyL2R2 && g.wii_buttons())
+    {
+        /* The Wii Remote's 2 does what L2 and R2 do (wii_menu_bits). */
+        if (!measure_only)
+            g.glyph(Glyph::R2, x + 22, cy, 44, kWhite);
+        return 44;
+    }
     const char *a = which == kKeyL1R1 ? "L1" : "L2";
     const char *b = which == kKeyL1R1 ? "R1" : "R2";
     if (g.has_icons())
@@ -2905,6 +3022,8 @@ void App::draw(double time)
         draw_tile_art(time);
     else if (screen_ == Screen::Shots)
         draw_shots(time);
+    else if (screen_ == Screen::Controllers)
+        draw_controllers(time);
     else if (screen_ == Screen::GameSettings)
         draw_settings();
     else if (screen_ == Screen::Mapping)
@@ -2955,7 +3074,7 @@ void App::draw_revolution(double time)
     /* The full-screen pages (the setups, the guide, a folder) have headings of their own. */
     const bool full_page = screen_ == Screen::WiiSetup || screen_ == Screen::WiiGuide || screen_ == Screen::Mapping ||
                            screen_ == Screen::Browse || screen_ == Screen::GameSettings ||
-                           screen_ == Screen::TileArt || screen_ == Screen::Shots;
+                           screen_ == Screen::TileArt || screen_ == Screen::Shots || screen_ == Screen::Controllers;
     if (!full_page)
         draw_rev_top_bar(!home);
     draw_zoom(time);
@@ -2986,6 +3105,8 @@ void App::draw_revolution(double time)
         draw_tile_art(time);
     else if (screen_ == Screen::Shots)
         draw_shots(time);
+    else if (screen_ == Screen::Controllers)
+        draw_controllers(time);
     else if (screen_ == Screen::GameSettings)
         draw_settings();
     else if (screen_ == Screen::Mapping)

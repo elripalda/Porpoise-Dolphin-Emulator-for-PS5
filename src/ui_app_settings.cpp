@@ -699,8 +699,53 @@ void App::add_game_rows(Settings &t, bool per_game)
            "Wii Speak.",
            &t.microphone);
 
-    header("Controls");
+    if (!per_game)
     {
+        /* The controllers and what each is doing now (ui_app_controllers.cpp):
+         * the rows' values follow the devices while the section is open. */
+        header("Controllers & Accessories");
+        {
+            SettingRow r;
+            r.section = section;
+            r.label = tr("Controller Test & Diagnostics");
+            r.help = tr("Every controller and accessory, what it's doing now, a live test of its buttons, sticks, "
+                        "motion and IR pointer, and what to do when something doesn't work. No game needed.");
+            r.values = {tr("Open\xE2\x80\xA6")};
+            r.action = kRowControllers;
+            r.folder = 1;
+            rows_.push_back(r);
+        }
+        static const char *const kDevices[6] = {"DualSense", "Mayflash DolphinBar W010", "Wii Remote 1",
+                                                "Wii Remote 2", "Wii Remote 3", "Wii Remote 4"};
+        for (int i = 0; i < 6; ++i)
+        {
+            SettingRow r;
+            r.section = section;
+            r.label = tr(kDevices[i]);
+            r.help = i == 0   ? tr("The DualSense controllers on the console. Cross opens their live test.")
+                     : i == 1 ? tr("The Mayflash DolphinBar (USB 057E:0306, mode 4). Cross opens its details and "
+                                   "the diagnosis.")
+                              : tr("A Wii Remote through the DolphinBar, with its attachment (Nunchuk, Classic "
+                                   "Controller, MotionPlus). Cross opens its live test.");
+            r.live = i;
+            r.values = {controller_row_value(i, nullptr)};
+            r.action = kRowControllers;
+            r.folder = i;
+            rows_.push_back(r);
+        }
+        choice("wii_source", "Wii Remotes",
+               "DualSense: your controller plays the Wii Remote. Real Wii Remotes: original Wii Remotes and Wii Remote "
+               "Plus through a Mayflash DolphinBar (mode 4) in a USB port, up to four, with their own Nunchuk, Classic "
+               "Controller, MotionPlus, pointer and motion; the DualSense still opens Porpoise's menu. A Remote is "
+               "found when it's connected to the DolphinBar. Applies when the game starts or this changes.",
+               &t.wii_source, 0, {"DualSense", "Real Wii Remotes (DolphinBar)"});
+        toggle("real_wiimote_speaker", "Real Wii Remote Speakers",
+               "The speakers of real Wii Remotes (DolphinBar), in games and the speaker test. Off: no sound data is "
+               "sent to them at all. The TV's sound and the DualSense's speaker stay as they are.",
+               &t.real_wiimote_speaker);
+    }
+
+    header("Controls");    {
         std::vector<std::string> layouts = {"GameCube", "PlayStation"};
         for (int i = 1; i <= Settings::kPresets; ++i)
             layouts.push_back(trf("My Layout {n}", {{"n", std::to_string(i)}}));
@@ -774,6 +819,13 @@ void App::add_game_rows(Settings &t, bool per_game)
     }
 
     header("Wii Remote");
+    if (per_game) /* everywhere else it's in Controllers & Accessories */
+    choice("wii_source", "Wii Remotes",
+           "DualSense: your controller plays the Wii Remote. Real Wii Remotes: original Wii Remotes and Wii Remote "
+           "Plus through a Mayflash DolphinBar (mode 4) in a USB port, up to four, with their own Nunchuk, Classic "
+           "Controller, MotionPlus, pointer and motion; the DualSense still opens Porpoise's menu. A Remote is "
+           "found when it's connected to the DolphinBar. Applies when the game starts or this changes.",
+           &t.wii_source, 0, {"DualSense", "Real Wii Remotes (DolphinBar)"});
     {
         SettingRow r;
         r.section = section;
@@ -1845,6 +1897,7 @@ void App::simplify_rows(bool per_game)
         {"Enhancements", false, false, {"resolution", "antialiasing", "screen_filter", "filter_strength"}},
         {"Save States", false, false, {"quick_resume"}},
         {"Audio", false, false, {"volume", "audio_preset"}},
+        {"Controllers & Accessories", true, true, {}},
         {"Controls", false, true, {"button_layout", "rumble"}},
         {"Wii Remote", false, true, {"wii_preset", "wii_controller", "wii_pointer"}},
         {"Console", false, true, {"language"}},
@@ -2438,6 +2491,9 @@ App::Action App::activate_row(const SettingRow &row)
         return Action::None;
     case kRowWiiGuide:
         open_wii_guide();
+        return Action::None;
+    case kRowControllers:
+        open_controllers(row.folder < 0 ? 1 : row.folder);
         return Action::None;
     case kRowWiiSetup:
         open_wii_setup(screen_ == Screen::GameSettings ? game_for_ : nullptr, false, "");
@@ -3263,6 +3319,8 @@ void App::draw_settings()
     else if (focus.action == kRowMapping)
         draw_prompts({{Glyph::Cross, "Customize"}, {Glyph::Circle, "Sections"}}, {}, "");
     else if (focus.action == kRowShots)
+        draw_prompts({{Glyph::Cross, "Open"}, {Glyph::Circle, "Sections"}}, {}, "");
+    else if (focus.action == kRowControllers)
         draw_prompts({{Glyph::Cross, "Open"}, {Glyph::Circle, "Sections"}}, {}, "");
     else if (focus.action == kRowWiiGuide)
         draw_prompts({{Glyph::Cross, "Show"}, {Glyph::Circle, "Sections"}}, {}, "");

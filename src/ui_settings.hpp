@@ -133,6 +133,12 @@ struct Settings
         return slot == 1 ? wii_buttons : slot == 2 ? wii_buttons2 : nullptr;
     }
     const int (*wii_buttons_in_use() const)[porpoise::pad::CtlCount];
+    /* Wii games: the DualSense as the Wii Remote (0), or real Wii Remotes
+     * through a Mayflash DolphinBar (1; WiiConfig::real_remotes). */
+    int wii_source = 0;
+    /* The real Wii Remotes' own speakers (porpoise_usbhid: off, no speaker data
+     * goes to them at all). Not the TV's sound or the DualSense's speaker. */
+    bool real_wiimote_speaker = true;
     /* Wii games: how the DualSense plays the Wii Remote (porpoise::pad::WiiConfig). */
     int wii_controller = 0; /* Remote + Nunchuk, Remote, sideways, Classic, two controllers, GameCube */
     int wii_pointer = 0;    /* gyro, touch pad, right stick */

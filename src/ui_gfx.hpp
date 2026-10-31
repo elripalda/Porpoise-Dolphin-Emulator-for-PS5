@@ -270,6 +270,12 @@ public:
      * a face button's ring is about two thirds of the cell). */
     void icon(Icon i, float cx, float cy, float size, Color c);
     bool has_icons() const { return icons_ != nullptr; }
+    /* The prompts as a Wii Remote's buttons (A, B, 1, +, -, and the Nunchuk's
+     * C and Z) while one works the menus; the rest stay the DualSense's. */
+    void set_wii_buttons(bool on) { wii_buttons_ = on; }
+    bool wii_buttons() const { return wii_buttons_; }
+    void set_wii_sideways(bool on) { wii_sideways_ = on; } /* held sideways: 1, 2, A, B and B+1, B+2, B+- */
+    bool wii_sideways() const { return wii_sideways_; }
     /* Part of a texture: uv is u0 v0 u1 v1. */
     void image_part(Texture *t, float x, float y, float w, float h, const float uv[4], Color tint = {},
                     float radius = 0);
@@ -390,6 +396,7 @@ private:
     Texture *white_ = nullptr;
     Texture *atlas_ = nullptr;
     Texture *icons_ = nullptr;
+    bool wii_buttons_ = false, wii_sideways_ = false;
     Texture *brand_mask_ = nullptr;
     std::vector<Texture *> textures_;
     /* Freed, waiting for the GPU: the UI frame and the present (record())
