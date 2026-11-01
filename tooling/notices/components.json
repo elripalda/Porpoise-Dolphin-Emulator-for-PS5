@@ -730,6 +730,35 @@
       "modifications": "Modified: rendered to PNG by tools/make-controller-art.py; the PlayStation logo removed from the controller drawings, lines thickened, the schematic's own labels removed, and the button icons packed into one atlas. Originals: third_party/zacksly-ps5-icons and https://zacksly.itch.io."
     },
     {
+      "id": "realtek-rtl8761-bt-firmware",
+      "name": "Realtek RTL8761B/C Bluetooth firmware (USB Bluetooth adapters, uploaded to the adapter)",
+      "kind": "asset",
+      "always": true,
+      "artifacts": [
+        "assets/bluetooth/rtl8761bu_fw.bin",
+        "assets/bluetooth/rtl8761bu_config.bin",
+        "assets/bluetooth/rtl8761cu_fw.bin",
+        "assets/bluetooth/rtl8761cu_config.bin"
+      ],
+      "licence": "LicenseRef-LICENCE.rtlwifi_firmware.txt",
+      "licence_reviewed": "Redistribution in binary form without modification permitted with the notice and disclaimer reproduced (they travel in LICENCE.rtlwifi_firmware.txt); no use restriction.",
+      "copyright": [
+        "Copyright (c) 2010, Realtek Semiconductor Corporation"
+      ],
+      "texts": [
+        {
+          "from": "assets/bluetooth/LICENCE.rtlwifi_firmware.txt",
+          "to": "LICENCE.rtlwifi_firmware.txt"
+        }
+      ],
+      "source": {
+        "kind": "git",
+        "path": ".",
+        "url": "https://github.com/elripalda/Porpoise-Dolphin-Emulator-for-PS5/tree/{rev}/assets/bluetooth"
+      },
+      "modifications": "Unmodified binaries from linux-firmware (rtl_bt/): https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git. Redistributable in binary form under Realtek's licence."
+    },
+    {
       "id": "stb",
       "name": "stb_truetype, stb_image and stb_vorbis (Porpoise UI text, images and menu music)",
       "kind": "code",

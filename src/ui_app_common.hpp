@@ -78,6 +78,7 @@ enum RowAction
     kRowSysUpdate,    /* Console > Wii System Update: the Wii's system software from Nintendo's servers */
     kRowAddCode,      /* a game's Cheats and Patches > Add a Code (ui_app_code.cpp) */
     kRowAllSettings,  /* 4.0: Show All Settings (Settings and a game's settings) */
+    kRowControllers,  /* Controllers & Accessories: the test and diagnosis screen (folder: which device) */
 };
 
 /* Prompts with a keycap instead of a face-button glyph (draw_prompts). */

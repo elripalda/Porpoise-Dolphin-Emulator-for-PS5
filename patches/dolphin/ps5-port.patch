@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 01b03ecee5..343efa4d02 100644
+index 01b03ecee5..ea6a109de9 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -497,7 +497,8 @@ if(LIBRETRO)
@@ -26,22 +26,32 @@ index 01b03ecee5..343efa4d02 100644
  endif()
  
 -if(NOT ANDROID AND NOT IOS AND NOT WEBOS)
-+# PS5: no USB passthrough and no real Wii Remotes; a core reaches the pad only
-+# through the frontend (libusb, hidapi and cpp-ipc are not built).
++# PS5: no USB passthrough (libusb and cpp-ipc are not built). Real Wii Remotes
++# come through hidapi, which the title implements (below).
 +if(NOT ANDROID AND NOT IOS AND NOT WEBOS AND NOT DOLPHIN_PS5)
    dolphin_find_optional_system_library(LibUSB Externals/libusb)
    add_definitions(-D__LIBUSB__)
  endif()
-@@ -801,7 +804,7 @@ dolphin_find_optional_system_library(MBEDTLS Externals/mbedtls 2.28)
+@@ -801,8 +804,17 @@ dolphin_find_optional_system_library(MBEDTLS Externals/mbedtls 2.28)
  
  dolphin_find_optional_system_library(CURL Externals/curl)
  
 -if(NOT ANDROID AND NOT IOS)
 +if(NOT ANDROID AND NOT IOS AND NOT DOLPHIN_PS5)
    dolphin_find_optional_system_library(HIDAPI Externals/hidapi)
++elseif(DOLPHIN_PS5)
++  # PS5: real Wii Remotes through a Mayflash DolphinBar. hidapi's header only:
++  # Porpoise implements hid_enumerate, hid_open_path, hid_read_timeout,
++  # hid_write and the rest over the console's ugen USB nodes
++  # (src/porpoise_usbhid.cpp), and the core loader binds the core's imports of
++  # them to the title's. So WiimoteReal/IOhidapi.cpp is built as it is.
++  add_library(hidapi_ps5 INTERFACE)
++  target_include_directories(hidapi_ps5 INTERFACE ${CMAKE_SOURCE_DIR}/Externals/hidapi/hidapi-src/hidapi)
++  add_library(Hidapi::Hidapi ALIAS hidapi_ps5)
  endif()
  
-@@ -848,7 +851,7 @@ if (NOT IOS)
+ if(USE_DISCORD_PRESENCE)
+@@ -848,7 +860,7 @@ if (NOT IOS)
  endif()
  
  # Any other platform or BSD is currently unsupported by cpp-ipc
@@ -4601,7 +4611,7 @@ index 5250054bf4..623852428d 100644
    Core::System& system = Core::System::GetInstance();
  
 diff --git a/Source/Core/DolphinLibretro/Log.cpp b/Source/Core/DolphinLibretro/Log.cpp
-index 1a1915cd1d..5eda0c9842 100644
+index 1a1915cd1d..0f7fb6c368 100644
 --- a/Source/Core/DolphinLibretro/Log.cpp
 +++ b/Source/Core/DolphinLibretro/Log.cpp
 @@ -2,6 +2,8 @@
@@ -4613,7 +4623,7 @@ index 1a1915cd1d..5eda0c9842 100644
  #include "DolphinLibretro/Common/Options.h"
  #if defined(ANDROID)
  #include <android/log.h>
-@@ -94,6 +96,19 @@ LogListener::LogListener(retro_log_printf_t log) : m_log(log)
+@@ -94,6 +96,23 @@ LogListener::LogListener(retro_log_printf_t log) : m_log(log)
    Common::Log::LogManager::GetInstance()->SetEnable(
      Common::Log::LogType::DSP_MAIL,
      Libretro::Options::GetCached<bool>(Libretro::Options::main_interface::LOG_DSP_MAIL, false));
@@ -4628,12 +4638,16 @@ index 1a1915cd1d..5eda0c9842 100644
 +  for (const auto type : {Common::Log::LogType::IOS_FS, Common::Log::LogType::IOS_ES, Common::Log::LogType::IOS,
 +                          Common::Log::LogType::IOS_WIIMOTE})
 +    Common::Log::LogManager::GetInstance()->SetEnable(type, std::getenv("PORPOISE_NET_LOG") != nullptr);
++  // Porpoise: real Wii Remotes (a DolphinBar): Dolphin's own account of
++  // finding, connecting and losing them, with Debug Logs.
++  Common::Log::LogManager::GetInstance()->SetEnable(Common::Log::LogType::WIIMOTE,
++                                                    std::getenv("PORPOISE_NET_LOG") != nullptr);
 +  Common::Log::LogManager::GetInstance()->SetEnable(Common::Log::LogType::IOS_SSL, true);
 +  Common::Log::LogManager::GetInstance()->SetEnable(Common::Log::LogType::IOS_WC24, true);
  }
  
  LogListener::~LogListener()
-@@ -112,18 +127,18 @@ void LogListener::Log(Common::Log::LogLevel level, const char* text)
+@@ -112,18 +131,18 @@ void LogListener::Log(Common::Log::LogLevel level, const char* text)
    switch (level)
    {
    case Common::Log::LogLevel::LDEBUG:
@@ -5566,3 +5580,175 @@ index 95c2e83755..18ab44f05e 100644
  }
  
  void Presenter::ImmediateSwap(u32 xfb_addr, u32 fb_width, u32 fb_stride, u32 fb_height)
+diff --git a/Source/Core/Core/HW/WiimoteReal/WiimoteReal.cpp b/Source/Core/Core/HW/WiimoteReal/WiimoteReal.cpp
+index 1c0529c887..e92513bdf5 100644
+--- a/Source/Core/Core/HW/WiimoteReal/WiimoteReal.cpp
++++ b/Source/Core/Core/HW/WiimoteReal/WiimoteReal.cpp
+@@ -4,6 +4,7 @@
+ #include "Core/HW/WiimoteReal/WiimoteReal.h"
+ 
+ #include <algorithm>
++#include <deque>
+ #include <mutex>
+ #include <unordered_set>
+ 
+@@ -296,6 +297,17 @@ bool Wiimote::Read()
+   Report rpt(MAX_PAYLOAD);
+   auto const result = IORead(rpt.data());
+ 
++  // Porpoise: not linked (the game let the Remote go, as after it was
++  // switched off and on at a DolphinBar, which keeps it connected): its
++  // buttons are kept, so a press asks the game to connect it again
++  // (WiimoteDevice::PrepareInput), as on a Wii.
++  if (!m_is_linked && result >= 4)
++  {
++    const u8 id = rpt[1];
++    if ((id >= 0x20 && id <= 0x22) || (id >= 0x30 && id <= 0x37))
++      m_unlinked_buttons = u16(rpt[2] | (rpt[3] << 8));
++  }
++
+   // Drop the report if not connected.
+   if (m_is_linked && result > 0)
+   {
+@@ -480,6 +492,13 @@ void Wiimote::Update(const WiimoteEmu::DesiredWiimoteState& target_state)
+ 
+ ButtonData Wiimote::GetCurrentlyPressedButtons()
+ {
++  if (!m_is_linked)
++  {
++    const u16 raw = m_unlinked_buttons;
++    ButtonData buttons = {};
++    std::memcpy(&buttons, &raw, sizeof(buttons));
++    return buttons;
++  }
+   Report& rpt = m_last_input_report;
+   if (rpt.size() >= 4)
+   {
+@@ -956,6 +975,30 @@ void Pause()
+ }
+ 
+ // Called from the Wiimote scanner thread (or UI thread on source change)
++// Porpoise: a real Wii Remote connected to (1) or disconnected from (0) one of
++// the game's ports, for the frontend's notices and its DolphinBar log. It takes
++// them each frame with porpoise_take_wiimote_event.
++static std::mutex s_porpoise_events_lock;
++static std::deque<std::pair<int, int>> s_porpoise_events;
++
++static void PorpoiseWiimoteEvent(int port, int connected)
++{
++  std::lock_guard lk(s_porpoise_events_lock);
++  if (s_porpoise_events.size() < 32)
++    s_porpoise_events.emplace_back(port, connected);
++}
++
++extern "C" __attribute__((visibility("default"))) int porpoise_take_wiimote_event(int* port, int* connected)
++{
++  std::lock_guard lk(s_porpoise_events_lock);
++  if (s_porpoise_events.empty())
++    return 0;
++  *port = s_porpoise_events.front().first;
++  *connected = s_porpoise_events.front().second;
++  s_porpoise_events.pop_front();
++  return 1;
++}
++
+ static bool TryToConnectWiimoteToSlot(std::unique_ptr<Wiimote>& wm, unsigned int i)
+ {
+   if (Config::Get(Config::GetInfoForWiimoteSource(i)) != WiimoteSource::Real || g_wiimotes[i])
+@@ -981,6 +1024,8 @@ static bool TryToConnectWiimoteToSlot(std::unique_ptr<Wiimote>& wm, unsigned int
+   }
+ 
+   NOTICE_LOG_FMT(WIIMOTE, "Connected real wiimote to slot {}.", i + 1);
++  if (i < MAX_WIIMOTES)
++    PorpoiseWiimoteEvent(int(i), 1);
+ 
+   return true;
+ }
+@@ -995,6 +1040,8 @@ static void TryToConnectBalanceBoard(std::unique_ptr<Wiimote> wm)
+ 
+ static void HandleWiimoteDisconnect(int index)
+ {
++  if (index < MAX_WIIMOTES && g_wiimotes[index])
++    PorpoiseWiimoteEvent(index, 0);
+   const Core::CPUThreadGuard guard(Core::System::GetInstance());
+   // The Wii Remote object must exist through the call to UpdateSource
+   // to prevent WiimoteDevice from having a dangling HIDWiimote pointer.
+@@ -1045,6 +1092,10 @@ void HandleWiimoteSourceChange(unsigned int index)
+   {
+     const Core::CPUThreadGuard guard(Core::System::GetInstance());
+     auto removed_wiimote = std::move(g_wiimotes[index]);
++    // Porpoise: nothing in the emulated Bluetooth keeps the Remote, which the
++    // pool can delete before the new source is set.
++    if (removed_wiimote != nullptr)
++      WiimoteCommon::UpdateSource(index);
+ 
+     // The Wiimote pool isn't currently designed to handle Balance Boards.
+     // Refactoring will be needed to differentiate between remotes/boards.
+diff --git a/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.h b/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.h
+index f74bb4717e..6d77b50e8d 100644
+--- a/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.h
++++ b/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.h
+@@ -77,6 +77,9 @@ public:
+ 
+   // nullptr may be passed to disable the remote.
+   void SetSource(WiimoteCommon::HIDWiimote*);
++  // Porpoise: the source let go even under libretro (SetSource keeps the old
++  // one when given none), for a real Wii Remote that's being deleted.
++  void ClearSource();
+ 
+   const bdaddr_t& GetBD() const { return m_bd; }
+   const char* GetName() const { return m_name.c_str(); }
+diff --git a/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.cpp b/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.cpp
+index 4c522e370f..15b7d153a6 100644
+--- a/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.cpp
++++ b/Source/Core/Core/IOS/USB/Bluetooth/WiimoteDevice.cpp
+@@ -299,6 +299,13 @@ void WiimoteDevice::SetSource(WiimoteCommon::HIDWiimote* hid_source)
+   }
+ }
+ 
++void WiimoteDevice::ClearSource()
++{
++  if (m_hid_source && IsConnected())
++    Activate(false);
++  m_hid_source = nullptr;
++}
++
+ void WiimoteDevice::Reset()
+ {
+   SetBasebandState(BasebandState::Inactive);
+diff --git a/Source/Core/Core/HW/Wiimote.cpp b/Source/Core/Core/HW/Wiimote.cpp
+index 1679ffd151..c8c6478ddd 100644
+--- a/Source/Core/Core/HW/Wiimote.cpp
++++ b/Source/Core/Core/HW/Wiimote.cpp
+@@ -69,7 +69,15 @@ void UpdateSource(unsigned int index)
+   if (bluetooth == nullptr)
+     return;
+ 
+-  bluetooth->AccessWiimoteByIndex(index)->SetSource(GetHIDWiimoteSource(index));
++  HIDWiimote* const hid_source = GetHIDWiimoteSource(index);
++  // Porpoise: a real Wii Remote that went (switched off, out of reach, its
++  // source changed) is deleted right after this; libretro's SetSource keeps
++  // the old source when given none, which left the emulated Bluetooth with
++  // a deleted Remote and crashed the game on its next input update.
++  if (hid_source == nullptr && GetSource(index) != WiimoteSource::Emulated)
++    bluetooth->AccessWiimoteByIndex(index)->ClearSource();
++  else
++    bluetooth->AccessWiimoteByIndex(index)->SetSource(hid_source);
+ }
+ 
+ HIDWiimote* GetHIDWiimoteSource(unsigned int index)
+diff --git a/Source/Core/Core/HW/WiimoteReal/WiimoteReal.h b/Source/Core/Core/HW/WiimoteReal/WiimoteReal.h
+index 1512d134ec..888dc015be 100644
+--- a/Source/Core/Core/HW/WiimoteReal/WiimoteReal.h
++++ b/Source/Core/Core/HW/WiimoteReal/WiimoteReal.h
+@@ -114,6 +114,10 @@ protected:
+ 
+   u8 m_bt_device_index = 0;
+ 
++  // Porpoise: the buttons of the latest report while not linked (Read drops
++  // those reports), so a press can connect the Remote to the game again.
++  std::atomic<u16> m_unlinked_buttons{0};
++
+ private:
+   struct TimedReport
+   {

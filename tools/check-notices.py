@@ -58,7 +58,8 @@ def check(title, release=False):
                 problems.append(f"{component['id']}: {name} is listed but not in the title")
             elif sha256(title / name) != recorded:
                 problems.append(f"{component['id']}: {name} changed after its notice was staged")
-        if "LicenseRef" in component["licence"] and not component.get("noncommercial"):
+        if ("LicenseRef" in component["licence"] and not component.get("noncommercial")
+                and not component.get("licence_reviewed")):
             problems.append(f"{component['id']}: custom licence not marked non-commercial or reviewed")
         source = component["source"]
         if release:

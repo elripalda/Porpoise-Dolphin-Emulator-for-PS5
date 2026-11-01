@@ -278,6 +278,7 @@ def write(title, driver, tag, tokens, root, table, target):
         staged.append({
             "id": component["id"], "name": component["name"], "kind": component["kind"],
             "licence": component["licence"], "noncommercial": bool(component.get("noncommercial")),
+            "licence_reviewed": component.get("licence_reviewed"),
             "copyright": component.get("copyright", []), "modifications": component.get("modifications"),
             "texts": [t["file"] for t in texts], "text_records": texts,
             "source": source_of(component, tokens, root, title),

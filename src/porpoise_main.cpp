@@ -59,6 +59,10 @@
 #include "porpoise_framegen.hpp"
 #include "porpoise_pacer.hpp"
 #include "porpoise_aim.hpp"
+#include "porpoise_dolphinbar.hpp"
+#include "porpoise_ns2gc.hpp"
+#include "porpoise_bt.hpp"
+#include "porpoise_usbhid.hpp"
 #include "porpoise_pad.hpp"
 #include "porpoise_ra.hpp"
 #include "ui_widescreen.hpp"
@@ -408,9 +412,21 @@ void on_terminate()
     std::abort();
 }
 
+/* The DolphinBar let go before the shell ends the process: a USB transfer
+ * the process still has running when it ends makes the console drain it,
+ * and a drain that never ended left Porpoise impossible to close (only
+ * holding the power button helped). Waits at most 1.5 s. */
+void close_usb()
+{
+    const bool closed = porpoise::dolphinbar::close_for_exit(1500);
+    const bool gc_closed = porpoise::ns2gc::close_for_exit(800) && porpoise::bt::close_for_exit(800);
+    ps5::debug::mark_value("main: USB devices closed", closed && gc_closed ? 1 : 0);
+}
+
 [[noreturn]] void leave(int status)
 {
     ps5::debug::mark_value("main: leaving through the shell, status", status);
+    close_usb();
     porpoise::audio::close();
     porpoise::pad::close();
     ps5::memory::finish();
@@ -427,6 +443,7 @@ void on_terminate()
 [[noreturn]] void restart_porpoise()
 {
     ps5::debug::mark("main: restarting");
+    close_usb();
     porpoise::audio::close();
     porpoise::pad::close();
     ps5::memory::finish();
@@ -1400,6 +1417,9 @@ int menu_paused(void *)
     const porpoise::pad::State &pad = porpoise::pad::state();
     porpoise::ui::Input in;
     in.held = pad.buttons;
+    /* A real Wii Remote works the in-game menu too (the game has the
+     * DolphinBar: its buttons from the reports as they come). */
+    in.wii = porpoise::ui::wii_menu_bits(porpoise::usbhid::remote_buttons());
     in.stick_x = pad.left_x / 32768.0f;
     in.stick_y = pad.left_y / 32768.0f;
     g_app.set_sound_pulled(porpoise::audio::pulling());
@@ -1447,6 +1467,8 @@ int menu_paused(void *)
         porpoise::core::set_player1_port(g_play.p1_port);
     else if (key == "stick_sensitivity" || key == "stick_deadzone")
         porpoise::core::set_stick_shape(g_play.stick_sensitivity, g_play.stick_deadzone);
+    else if (key == "real_wiimote_speaker")
+        porpoise::usbhid::set_speaker_enabled(g_play.real_wiimote_speaker);
     else if (key == "fast_forward")
         porpoise::core::set_fast_forward(g_app.menu_fast_forward());
     else if (key == "border" || key == "fps_overlay" || key == "motion_readout")
@@ -2303,6 +2325,7 @@ void launch_frame(bool core_frame, double fps, void *)
         draw_wii_hint();
     if (g_menu_open)
         g_app.draw_game_menu(g_time);
+    porpoise::ui::draw_wiimote_notices(g_gfx); /* real Wii Remotes coming and going, over everything */
     g_app.draw_curtain(g_curtain);
 }
 
@@ -2552,6 +2575,9 @@ int main(int argc, char **argv)
     /* The console's splash stays up while Porpoise gets ready; it goes
      * with Porpoise's first frame (show_boot_mark), so there is no black gap. */
     porpoise::pad::open();
+    /* The Switch 2's GameCube controller, whenever it's plugged in. */
+    porpoise::ns2gc::start();
+    porpoise::bt::start(); /* and without its cable, through a USB Bluetooth adapter */
     porpoise::audio::open();
 
     choose_data_dir();
@@ -2944,6 +2970,7 @@ int main(int argc, char **argv)
             }
             begin_ui_frame(0.0f);
             g_app.draw(g_time);
+            porpoise::ui::draw_wiimote_notices(g_gfx);
             if (g_curtain > 0.0f)
                 g_app.draw_curtain(g_curtain); /* the entrance (entrance_frame) */
             porpoise::vk::present_clear(0, 0, 0);
@@ -3295,6 +3322,7 @@ int main(int argc, char **argv)
                              : "main: online the game's own way (no custom server)");
 #endif
         playback.wii = g_play.wii_config(is_wii, g_wii_game_id);
+        porpoise::usbhid::set_speaker_enabled(g_play.real_wiimote_speaker); /* this game's own choice, if it has one */
         playback.controller_speakers = g_controller_speakers;
         playback.audio_pull = g_play.audio_pull;
         playback.audio_buffer_ms = g_play.audio_buffer_ms();
