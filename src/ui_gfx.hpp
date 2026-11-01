@@ -273,6 +273,10 @@ public:
     /* The prompts as a Wii Remote's buttons (A, B, 1, +, -, and the Nunchuk's
      * C and Z) while one works the menus; the rest stay the DualSense's. */
     void set_wii_buttons(bool on) { wii_buttons_ = on; }
+    /* The Switch 2's GameCube controller works the menus: its buttons' names
+     * for the DualSense's (ui_app.cpp gc_menu_bits has the same pairs). */
+    void set_gc_buttons(bool on) { gc_buttons_ = on; }
+    bool gc_buttons() const { return gc_buttons_; }
     bool wii_buttons() const { return wii_buttons_; }
     void set_wii_sideways(bool on) { wii_sideways_ = on; } /* held sideways: 1, 2, A, B and B+1, B+2, B+- */
     bool wii_sideways() const { return wii_sideways_; }
@@ -396,7 +400,7 @@ private:
     Texture *white_ = nullptr;
     Texture *atlas_ = nullptr;
     Texture *icons_ = nullptr;
-    bool wii_buttons_ = false, wii_sideways_ = false;
+    bool wii_buttons_ = false, wii_sideways_ = false, gc_buttons_ = false;
     Texture *brand_mask_ = nullptr;
     std::vector<Texture *> textures_;
     /* Freed, waiting for the GPU: the UI frame and the present (record())

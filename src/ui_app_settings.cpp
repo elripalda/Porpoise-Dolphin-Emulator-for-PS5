@@ -715,30 +715,45 @@ void App::add_game_rows(Settings &t, bool per_game)
             r.folder = 1;
             rows_.push_back(r);
         }
-        static const char *const kDevices[6] = {"DualSense", "Mayflash DolphinBar W010", "Wii Remote 1",
-                                                "Wii Remote 2", "Wii Remote 3", "Wii Remote 4"};
-        for (int i = 0; i < 6; ++i)
+        static const char *const kDevices[8] = {"DualSense",    "Mayflash DolphinBar W010", "Wii Remote 1",
+                                                "Wii Remote 2", "Wii Remote 3",             "Wii Remote 4",
+                                                "Switch 2 GameCube Controller", "USB Bluetooth Adapter"};
+        const std::string present = controllers_present();
+        ctl_rows_present_ = present;
+        for (int i = 0; i < 8; ++i)
         {
+            /* the DolphinBar and its Remotes, the GameCube controller, a Bluetooth adapter: only while
+             * plugged in */
+            const int item = i >= 6 ? i + 1 : i;
+            if (present.find(char('a' + item)) == std::string::npos)
+                continue;
             SettingRow r;
             r.section = section;
             r.label = tr(kDevices[i]);
             r.help = i == 0   ? tr("The DualSense controllers on the console. Cross opens their live test.")
                      : i == 1 ? tr("The Mayflash DolphinBar (USB 057E:0306, mode 4). Cross opens its details and "
                                    "the diagnosis.")
+                     : i == 6 ? tr("Nintendo's GameCube controller for the Switch 2, by USB cable: player 1's "
+                                   "GameCube controller in games, beside the DualSense. Cross opens its live test.")
+                     : i == 7 ? tr("A USB Bluetooth adapter for the Switch 2's GameCube controller without its "
+                                   "cable: press the SYNC button on top of the controller. Cross opens its details.")
                               : tr("A Wii Remote through the DolphinBar, with its attachment (Nunchuk, Classic "
                                    "Controller, MotionPlus). Cross opens its live test.");
             r.live = i;
             r.values = {controller_row_value(i, nullptr)};
             r.action = kRowControllers;
-            r.folder = i;
+            r.folder = item; /* the test screen's list: the GameCube controller and the adapter after the speaker */
             rows_.push_back(r);
         }
+        /* with a DolphinBar plugged in (or real Remotes chosen, so it can be undone) */
+        if (present.find('b') != std::string::npos || t.wii_source)
         choice("wii_source", "Wii Remotes",
                "DualSense: your controller plays the Wii Remote. Real Wii Remotes: original Wii Remotes and Wii Remote "
                "Plus through a Mayflash DolphinBar (mode 4) in a USB port, up to four, with their own Nunchuk, Classic "
                "Controller, MotionPlus, pointer and motion; the DualSense still opens Porpoise's menu. A Remote is "
                "found when it's connected to the DolphinBar. Applies when the game starts or this changes.",
                &t.wii_source, 0, {"DualSense", "Real Wii Remotes (DolphinBar)"});
+        if (present.find('b') != std::string::npos)
         toggle("real_wiimote_speaker", "Real Wii Remote Speakers",
                "The speakers of real Wii Remotes (DolphinBar), in games and the speaker test. Off: no sound data is "
                "sent to them at all. The TV's sound and the DualSense's speaker stay as they are.",

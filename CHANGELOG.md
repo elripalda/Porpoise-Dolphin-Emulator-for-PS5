@@ -15,6 +15,14 @@
   without, with its own button prompts; HOME held for a second in a game
   opens the in-game menu.
 - **Notices** when a Wii Remote or its Nunchuk is connected or taken off.
+- **The Switch 2's GameCube controller** (Nintendo Switch Online, 057E:2073):
+  by its USB cable, or without it through a USB Bluetooth adapter with a
+  Realtek RTL8761B/C (tested: TP-Link UB600). It is player 1's GameCube
+  controller beside the DualSense, with its analog triggers and rumble; it
+  works Porpoise's menus with its own button prompts, and HOME opens the
+  in-game menu. By Bluetooth it is paired once with its SYNC button and
+  then connects with any button. See docs/NSO-GAMECUBE.md.
+- **Controllers & Accessories** lists only what's plugged in.
 
 **Fixed**
 - A game no longer crashes when a real Wii Remote is switched off in it, and

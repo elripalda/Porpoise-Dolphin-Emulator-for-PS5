@@ -60,6 +60,8 @@
 #include "porpoise_pacer.hpp"
 #include "porpoise_aim.hpp"
 #include "porpoise_dolphinbar.hpp"
+#include "porpoise_ns2gc.hpp"
+#include "porpoise_bt.hpp"
 #include "porpoise_usbhid.hpp"
 #include "porpoise_pad.hpp"
 #include "porpoise_ra.hpp"
@@ -417,7 +419,8 @@ void on_terminate()
 void close_usb()
 {
     const bool closed = porpoise::dolphinbar::close_for_exit(1500);
-    ps5::debug::mark_value("main: USB devices closed", closed ? 1 : 0);
+    const bool gc_closed = porpoise::ns2gc::close_for_exit(800) && porpoise::bt::close_for_exit(800);
+    ps5::debug::mark_value("main: USB devices closed", closed && gc_closed ? 1 : 0);
 }
 
 [[noreturn]] void leave(int status)
@@ -2572,6 +2575,9 @@ int main(int argc, char **argv)
     /* The console's splash stays up while Porpoise gets ready; it goes
      * with Porpoise's first frame (show_boot_mark), so there is no black gap. */
     porpoise::pad::open();
+    /* The Switch 2's GameCube controller, whenever it's plugged in. */
+    porpoise::ns2gc::start();
+    porpoise::bt::start(); /* and without its cable, through a USB Bluetooth adapter */
     porpoise::audio::open();
 
     choose_data_dir();

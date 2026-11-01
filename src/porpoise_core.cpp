@@ -21,6 +21,7 @@
 #include "porpoise_speaker.hpp"
 #include "porpoise_states.hpp"
 #include "porpoise_dolphinbar.hpp"
+#include "porpoise_ns2gc.hpp"
 #include "porpoise_usbhid.hpp"
 
 #include <ps5platform/libc.h>
@@ -451,11 +452,40 @@ int player_of(unsigned port)
     return int(port);
 }
 
+/* Player 1 last played with the Switch 2's GameCube controller (else the
+ * DualSense): it gets the rumble (merge_ns2gc). */
+std::atomic<bool> g_p1_on_gc{true};
+
+/* The Switch 2's GameCube controller plays a GameCube controller: in a
+ * GameCube game, or a Wii game played with one. */
+bool gamecube_controls()
+{
+    return !h.wii.active || h.wii.controller == porpoise::pad::WiiGameCube;
+}
+
 bool set_rumble(unsigned port, enum retro_rumble_effect effect, uint16_t strength)
 {
     if (port >= unsigned(porpoise::pad::kMaxPlayers))
         return false;
-    porpoise::pad::set_rumble(player_of(port), effect == RETRO_RUMBLE_STRONG, strength);
+    /* Player 1 with the Switch 2's GameCube controller plugged in: the rumble
+     * goes to whichever of it and the DualSense was played with last (its
+     * one motor runs while either of the game's is on), the other is still. */
+    if (player_of(port) == 0 && porpoise::ns2gc::connected() && gamecube_controls())
+    {
+        static std::atomic<std::uint16_t> strong{0}, weak{0};
+        (effect == RETRO_RUMBLE_STRONG ? strong : weak) = strength;
+        const bool gc = g_p1_on_gc.load();
+        porpoise::ns2gc::set_rumble(gc && (strong.load() || weak.load()));
+        porpoise::pad::set_rumble(0, effect == RETRO_RUMBLE_STRONG, gc ? 0 : strength);
+        if (gc)
+            porpoise::pad::set_rumble(0, effect != RETRO_RUMBLE_STRONG, 0);
+    }
+    else
+    {
+        porpoise::pad::set_rumble(player_of(port), effect == RETRO_RUMBLE_STRONG, strength);
+        if (player_of(port) == 0)
+            porpoise::ns2gc::set_rumble(false);
+    }
     /* Two-controller play: the Remote's rumble is felt in both hands. */
     if (port == 0 && h.wii.active && h.wii.controller == porpoise::pad::WiiTwoControllers)
         porpoise::pad::set_rumble(1, effect == RETRO_RUMBLE_STRONG, strength);
@@ -747,11 +777,81 @@ bool RETRO_CALLCONV set_sensor_state(unsigned port, enum retro_sensor_action act
 porpoise::pad::State g_frame_pads[2][porpoise::pad::kMaxPlayers];
 std::atomic<int> g_frame_pads_now{0};
 
+/* The Switch 2's GameCube controller (porpoise_ns2gc.hpp), plugged in, is
+ * player 1's beside the DualSense: both work, a button pressed on either is
+ * pressed, and each stick and trigger is whichever is pushed further. */
+void merge_ns2gc(porpoise::pad::State &p)
+{
+    const porpoise::ns2gc::Pad gc = porpoise::ns2gc::pad();
+    static bool was_connected = false;
+    if (!gc.connected || !gamecube_controls())
+    {
+        was_connected = false;
+        return;
+    }
+    /* Which of the two player 1 is playing with: the one whose buttons
+     * change or whose stick or trigger is pushed (plugged in: this one). */
+    {
+        static std::uint32_t gc_prev = 0, ds_prev = 0;
+        auto pushed = [](int v) { return std::abs(v) > 16000; };
+        const bool gc_moved = (gc.buttons & ~gc_prev) || pushed(gc.lx) || pushed(gc.ly) || pushed(gc.rx) ||
+                              pushed(gc.ry) || gc.lt > 16000 || gc.rt > 16000;
+        const bool ds_moved = (p.buttons & ~ds_prev) || pushed(p.left_x) || pushed(p.left_y) ||
+                              pushed(p.right_x) || pushed(p.right_y) || p.l2 > 16000 || p.r2 > 16000;
+        bool on_gc = g_p1_on_gc.load();
+        if (!was_connected || gc_moved)
+            on_gc = true;
+        else if (ds_moved)
+            on_gc = false;
+        if (on_gc != g_p1_on_gc.load())
+        {
+            g_p1_on_gc = on_gc;
+            /* the one put down stops at once */
+            if (on_gc)
+            {
+                porpoise::pad::set_rumble(0, true, 0);
+                porpoise::pad::set_rumble(0, false, 0);
+            }
+            else
+                porpoise::ns2gc::set_rumble(false);
+        }
+        gc_prev = gc.buttons;
+        ds_prev = p.buttons;
+        was_connected = true;
+    }
+    namespace n = porpoise::ns2gc;
+    static const struct
+    {
+        std::uint32_t button;
+        unsigned retro;
+    } kMap[] = {
+        /* as the core reads a GameCube controller (porpoise_pad.cpp, kGcRetro) */
+        {n::GcA, RETRO_DEVICE_ID_JOYPAD_A},         {n::GcB, RETRO_DEVICE_ID_JOYPAD_B},
+        {n::GcX, RETRO_DEVICE_ID_JOYPAD_X},         {n::GcY, RETRO_DEVICE_ID_JOYPAD_Y},
+        {n::GcZ, RETRO_DEVICE_ID_JOYPAD_R},         {n::GcL, RETRO_DEVICE_ID_JOYPAD_L2},
+        {n::GcR, RETRO_DEVICE_ID_JOYPAD_R2},        {n::GcStart, RETRO_DEVICE_ID_JOYPAD_START},
+        {n::GcUp, RETRO_DEVICE_ID_JOYPAD_UP},       {n::GcDown, RETRO_DEVICE_ID_JOYPAD_DOWN},
+        {n::GcLeft, RETRO_DEVICE_ID_JOYPAD_LEFT},   {n::GcRight, RETRO_DEVICE_ID_JOYPAD_RIGHT},
+    };
+    for (const auto &m : kMap)
+        if (gc.buttons & m.button)
+            p.joypad = std::uint16_t(p.joypad | (1u << m.retro));
+    auto further = [](std::int16_t a, std::int16_t b) { return std::abs(int(b)) > std::abs(int(a)) ? b : a; };
+    p.left_x = further(p.left_x, gc.lx);
+    p.left_y = further(p.left_y, gc.ly);
+    p.right_x = further(p.right_x, gc.rx);
+    p.right_y = further(p.right_y, gc.ry);
+    p.l2 = std::max(p.l2, gc.lt);
+    p.r2 = std::max(p.r2, gc.rt);
+    p.connected = true;
+}
+
 void publish_frame_pads()
 {
     const int next = 1 - g_frame_pads_now.load(std::memory_order_relaxed);
     for (int player = 0; player < porpoise::pad::kMaxPlayers; ++player)
         g_frame_pads[next][player] = porpoise::pad::snapshot(player);
+    merge_ns2gc(g_frame_pads[next][0]);
     g_frame_pads_now.store(next, std::memory_order_release);
 }
 
@@ -1860,7 +1960,7 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
             }
         /* Options + touch pad, or a real Wii Remote's HOME held: the in-game
          * menu, which pauses the game. */
-        const bool combo = pad.ps_menu_combo || porpoise::usbhid::take_home_hold();
+        const bool combo = pad.ps_menu_combo || porpoise::usbhid::take_home_hold() || porpoise::ns2gc::take_home_press();
         const bool combo_pressed = combo && !combo_was;
         combo_was = combo;
         if (h.hold_input && pad.buttons == 0)
@@ -2305,6 +2405,7 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
         h.hw.context_destroy();
     /* An unlock still on its way gets a few seconds before the game goes. */
     porpoise::ra::finish_game(h.library, 5000);
+    porpoise::ns2gc::set_rumble(false);
     if (h.ports_real)
         dolphinbar_log(("Porpoise: the game ends; what was seen:\n" + porpoise::usbhid::describe()).c_str());
     h.api.unload_game();

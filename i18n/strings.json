@@ -7826,5 +7826,173 @@
  {
   "en": "DualSense Setup",
   "section": "4.1: Controllers & Accessories, the DolphinBar"
+ },
+ {
+  "en": "Switch 2 GameCube Controller",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Setting up…",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Set-up failed",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Connected (USB)",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Plug the GameCube controller for Nintendo Switch 2 into a USB port of the PS5 with a USB-C data cable. It shows up here by itself and plays player 1's GameCube controller in games, beside the DualSense; HOME opens Porpoise's menu.",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Setting it up failed: {step} (error {errno}). It's tried again by itself; if it stays, unplug it and plug it in again.",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Found. Reading its calibration and starting its input…",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "{ok} of {n} commands answered",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "System driver",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Capture",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Button bytes",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Reports",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Calibration",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "its own",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "its own (sticks only)",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "not read: estimated",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Serial number",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "In games: player 1's GameCube controller, beside the DualSense. HOME opens Porpoise's menu.",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Sticks",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Raw",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Triggers",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "Nintendo's GameCube controller for the Switch 2, by USB cable: player 1's GameCube controller in games, beside the DualSense. Cross opens its live test.",
+  "section": "4.1: Controllers & Accessories, the Switch 2 GameCube controller"
+ },
+ {
+  "en": "USB Bluetooth Adapter",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Looking for devices…",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Checked",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Check",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Chip",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "ROM version",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Firmware",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Address",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Failed",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Bluetooth LE devices (still {s} s)",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Bluetooth LE devices",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "A test for Bluetooth controllers to come (the Switch 2's GameCube controller without a cable): plug a USB Bluetooth adapter into the PS5 (TP-Link UB600 or another with a Realtek RTL8761B/C) and press Cross. Porpoise reads its chip, gives it its firmware, then looks for Bluetooth devices for 15 seconds. Press the controller's pair button (the small one on top) while it looks. The PS5's own Bluetooth isn't used.",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Controller connected",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Connected (Bluetooth)",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Bluetooth",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "connected",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Clear List",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "Press the SYNC button on top of the controller.",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "The Switch 2's GameCube controller without its cable: plug a USB Bluetooth adapter into the PS5 (TP-Link UB600 or another with a Realtek RTL8761B/C). It's found by itself and given its firmware. Then press the SYNC button on top of the controller: it connects and plays as by cable. The PS5's own Bluetooth isn't used.",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
+ },
+ {
+  "en": "A USB Bluetooth adapter for the Switch 2's GameCube controller without its cable: press the SYNC button on top of the controller. Cross opens its details.",
+  "section": "4.1: Controllers & Accessories, a USB Bluetooth adapter"
  }
 ]

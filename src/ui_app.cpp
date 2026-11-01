@@ -8,6 +8,7 @@
 #include "porpoise_states.hpp"
 #include "ui_widescreen.hpp"
 #include "porpoise_dolphinbar.hpp"
+#include "porpoise_ns2gc.hpp"
 #include "porpoise_usbhid.hpp"
 #include "ui_app.hpp"
 
@@ -435,17 +436,54 @@ std::uint32_t wii_menu_bits(std::uint16_t b)
     }
     return out;
 }
-void App::follow_last_controller(std::uint32_t pad_held, std::uint32_t wii_held, bool remote_there)
+std::uint32_t gc_menu_bits()
 {
-    bool wii = g_->wii_buttons();
+    namespace gc = porpoise::ns2gc;
+    using namespace porpoise::pad;
+    const gc::Pad p = gc::pad();
+    if (!p.connected)
+        return 0;
+    static const struct
+    {
+        std::uint32_t gc, pad;
+    } kMap[] = {{gc::GcA, BtnCross},    {gc::GcB, BtnCircle}, {gc::GcX, BtnSquare},  {gc::GcY, BtnTriangle},
+                {gc::GcStart, BtnOptions}, {gc::GcZ, BtnR1},  {gc::GcZL, BtnL1},     {gc::GcL, BtnL2},
+                {gc::GcR, BtnR2},       {gc::GcUp, BtnUp},    {gc::GcDown, BtnDown}, {gc::GcLeft, BtnLeft},
+                {gc::GcRight, BtnRight}};
+    std::uint32_t out = 0;
+    for (const auto &m : kMap)
+        if (p.buttons & m.gc)
+            out |= m.pad;
+    /* the triggers pressed most of the way: as their click */
+    if (p.lt > 0x6000) out |= BtnL2;
+    if (p.rt > 0x6000) out |= BtnR2;
+    /* the control stick (libretro's way, y + down) */
+    constexpr int kPush = int(0.55f * 32767);
+    if (p.lx < -kPush) out |= BtnLeft;
+    if (p.lx > kPush) out |= BtnRight;
+    if (p.ly < -kPush) out |= BtnUp;
+    if (p.ly > kPush) out |= BtnDown;
+    return out;
+}
+
+void App::follow_last_controller(std::uint32_t pad_held, std::uint32_t wii_held, bool remote_there,
+                                 std::uint32_t gc_held)
+{
+    bool wii = g_->wii_buttons(), gc = g_->gc_buttons();
     if (wii_held & ~wii_prev_)
-        wii = true;
+        wii = true, gc = false;
+    if (gc_held & ~gc_prev_)
+        gc = true, wii = false;
     if (pad_held & ~raw_held_) /* raw_held_ is still the last frame's */
-        wii = false;
+        wii = gc = false;
     if (!remote_there)
         wii = false; /* the Wii Remote is gone */
+    if (!porpoise::ns2gc::connected())
+        gc = false;
     wii_prev_ = wii_held;
+    gc_prev_ = gc_held;
     g_->set_wii_buttons(wii);
+    g_->set_gc_buttons(gc);
     g_->set_wii_sideways(wii && porpoise::dolphinbar::menu_sideways());
 }
 
@@ -459,11 +497,20 @@ App::Action App::update(const Input &in, double dt)
     if (screen_ != Screen::Controllers)
     {
         const std::uint32_t wii = wii_menu_bits(porpoise::dolphinbar::menu_buttons());
-        follow_last_controller(in.held, wii, porpoise::dolphinbar::menu_remote() >= 0);
-        held_ |= wii;
+        /* the Switch 2's GameCube controller too; its buttons count as the
+         * DualSense's for the prompts */
+        const std::uint32_t gc = gc_menu_bits();
+        follow_last_controller(in.held, wii, porpoise::dolphinbar::menu_remote() >= 0, gc);
+        held_ |= wii | gc;
     }
     else
-        follow_last_controller(in.held, 0, porpoise::dolphinbar::menu_remote() >= 0);
+    {
+        /* The test screen: the Switch 2's GameCube controller works it too,
+         * except on its own page, where its buttons are what's tested. */
+        const std::uint32_t gc = ctl_sel_ == 7 ? 0 : gc_menu_bits();
+        follow_last_controller(in.held, 0, porpoise::dolphinbar::menu_remote() >= 0, gc);
+        held_ |= gc;
+    }
     raw_prev_ = raw_held_;
     raw_held_ = in.held;
     stick_x_ = in.stick_x;

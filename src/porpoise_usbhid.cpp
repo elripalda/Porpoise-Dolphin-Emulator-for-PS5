@@ -88,6 +88,7 @@ bool take_attachment_event(int &, bool &) { return false; }
 int latest_report(int, std::uint8_t *, int, unsigned &) { return 0; }
 std::uint16_t remote_buttons() { return 0; }
 std::string describe() { return "DolphinBar: the desktop core finds Wii Remotes itself\n"; }
+void set_node_in_use(const std::string &, bool) {}
 } // namespace porpoise::usbhid
 #else
 
@@ -404,6 +405,13 @@ struct Other
 };
 std::vector<Other> g_others;
 std::vector<std::pair<std::string, int>> g_unreadable, g_unreadable_now;
+std::mutex g_in_use_lock; /* g_in_use: its own, so the module that set it never waits for a USB call here */
+std::vector<std::string> g_in_use;
+bool in_use(const std::string &node)
+{
+    std::lock_guard<std::mutex> g(g_in_use_lock);
+    return std::find(g_in_use.begin(), g_in_use.end(), node) != g_in_use.end();
+}
 constexpr std::uint64_t kRecheckMs = 10000;
 
 struct Handle
@@ -1072,6 +1080,8 @@ bool identify(const std::string &node, Known &k)
         }
         return wanted(k.vid, k.pid);
     }
+    if (in_use(node))
+        return false;
     const int fd = SYS_OPEN(("/dev/" + node).c_str(), true);
     if (fd < 0)
     {
@@ -1165,6 +1175,14 @@ std::vector<std::string> stuck_calls(unsigned min_ms)
         }
     }
     return out;
+}
+
+void set_node_in_use(const std::string &node, bool busy)
+{
+    std::lock_guard<std::mutex> g(g_in_use_lock);
+    g_in_use.erase(std::remove(g_in_use.begin(), g_in_use.end(), node), g_in_use.end());
+    if (busy)
+        g_in_use.push_back(node);
 }
 
 void set_home_menu(bool on) { g_home_menu = on; }

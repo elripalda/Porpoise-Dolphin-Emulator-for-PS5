@@ -6,6 +6,8 @@
  *   controllers <assets dir> <covers dir> <out dir>
  */
 #include "porpoise_dolphinbar.hpp"
+#include "porpoise_ns2gc.hpp"
+#include "porpoise_bt.hpp"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -440,6 +442,80 @@ int main(int argc, char **argv)
     render("ctl-wii-prompts-sideways-de", [&] { ui.draw(12.0); });
     gfx.set_wii_sideways(false);
     gfx.set_wii_buttons(false);
+
+    /* The Switch 2's GameCube controller: not plugged in, failed, working. */
+    namespace gc = porpoise::ns2gc;
+    porpoise::ui::apply_language(1, "");
+    gc::Status c;
+    gc::preview_status(&c);
+    ui.preview_controllers(7, false);
+    shot("ctl-gc-not-connected");
+    c.link = gc::Link::Failed;
+    c.node = "ugen1.4";
+    c.product = "Nintendo GameCube Controller";
+    c.failed_step = "its set-up (no command was answered)";
+    c.commands_sent = 11;
+    c.kernel_driver[0] = 1;
+    shot("ctl-gc-failed");
+    c = gc::Status{};
+    c.link = gc::Link::Ready;
+    c.node = "ugen1.4";
+    c.product = "Nintendo GameCube Controller";
+    c.serial = "HEJ70012345678";
+    c.stick_calibration = c.trigger_calibration = true;
+    c.buttons = gc::GcA | gc::GcZ | gc::GcLeft;
+    c.raw_buttons[0] = 0x88;
+    c.raw_buttons[2] = 0x08;
+    c.lx = 0.7f;
+    c.ly = 0.4f;
+    c.rx = -0.3f;
+    c.ry = -0.8f;
+    c.raw_stick[0] = 3030, c.raw_stick[1] = 2600, c.raw_stick[2] = 1660, c.raw_stick[3] = 1010;
+    c.lt = 0.35f;
+    c.rt = 1.0f;
+    c.raw_trigger[0] = 101, c.raw_trigger[1] = 232;
+    c.report_rate = 250;
+    c.reports = 12000;
+    shot("ctl-gc-ready");
+    porpoise::ui::apply_language(9, "");
+    shot("ctl-gc-ready-de");
+    ui.preview_controllers(0, true);
+    shot("ctl-settings-section-gc-de");
+    /* A USB Bluetooth adapter's test, done, a Switch 2 controller found. */
+    namespace bt = porpoise::bt;
+    bt::Status bs;
+    bs.phase = bt::Phase::Scanning;
+    bs.link = bt::Link::Ready;
+    const std::uint8_t peer[6] = {0x3c, 0xa9, 0xab, 0x5d, 0xd7, 0xf6};
+    std::memcpy(bs.peer, peer, 6);
+    bs.att_mtu = 185, bs.interval_x125 = 6, bs.commands_ok = bs.commands_sent = 18, bs.notifications = 4210;
+    bs.node = "ugen1.5";
+    bs.vid = 0x37ad;
+    bs.pid = 0x0600;
+    bs.product = "TP-Link Bluetooth USB Adapter";
+    bs.have_version = true;
+    bs.hci_ver = 0x0a, bs.hci_rev = 0x000b, bs.lmp_ver = 0x0a, bs.lmp_subver = 0x8761, bs.manufacturer = 93;
+    bs.chip = "Realtek RTL8761BU";
+    bs.rom_version = 1;
+    bs.firmware = "rtl8761bu_fw.bin uploaded (40214 bytes), now 000bdfc6";
+    bs.firmware_ok = true;
+    const std::uint8_t addr[6] = {0x58, 0x04, 0x4f, 0xd7, 0xdc, 0x91};
+    std::memcpy(bs.bd_addr, addr, 6);
+    bs.have_addr = bs.le = true;
+    bt::Found f1;
+    const std::uint8_t a1[6] = {0x98, 0xe2, 0x55, 0x12, 0x34, 0x56};
+    std::memcpy(f1.addr, a1, 6);
+    f1.rssi = -48, f1.nintendo = true, f1.company = 0x0553, f1.seen = 40;
+    bt::Found f2;
+    const std::uint8_t a2[6] = {0x4c, 0x11, 0xae, 0x01, 0x02, 0x03};
+    std::memcpy(f2.addr, a2, 6);
+    f2.rssi = -77, f2.name = "Living room TV", f2.seen = 12;
+    bs.found = {f1, f2};
+    bt::preview_status(&bs);
+    ui.preview_controllers(8, false);
+    shot("ctl-bt-done-de");
+    bt::preview_status(nullptr);
+    gc::preview_status(nullptr);
     db::preview_status(nullptr);
     return 0;
 }

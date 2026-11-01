@@ -1,5 +1,6 @@
 /* Porpoise UI - Controllers & Accessories: the DualSense controllers, the
  * Mayflash DolphinBar W010 and its Wii Remotes 1-4 with their attachments,
+ * the Switch 2's GameCube controller (USB),
  * what each is doing now, a live test of every button, stick, trigger,
  * motion sensor and the IR camera, and a diagnosis when something is wrong.
  * Settings > Controllers & Accessories, before any game.
@@ -16,7 +17,9 @@
 #include <cstdio>
 #include <cstring>
 
+#include "porpoise_bt.hpp"
 #include "porpoise_dolphinbar.hpp"
+#include "porpoise_ns2gc.hpp"
 #include "porpoise_pad.hpp"
 #include "porpoise_usbhid.hpp"
 #include "ui_app.hpp"
@@ -28,12 +31,18 @@ namespace porpoise::ui
 using namespace look;
 using namespace porpoise::pad;
 namespace db = porpoise::dolphinbar;
+namespace gc = porpoise::ns2gc;
+namespace bt = porpoise::bt;
 
 namespace
 {
-constexpr int kItems = 8; /* DualSense, DolphinBar, Wii Remote 1-4, the speaker test, the Wii Remotes setting */
+/* DualSense, DolphinBar, Wii Remote 1-4, the speaker test, the Switch 2's GameCube controller, a USB
+ * Bluetooth adapter, the Wii Remotes setting */
+constexpr int kItems = 10;
 constexpr int kSpeakerItem = 6;
-constexpr float kListX = 90, kListY = 250, kListW = 540, kItemH = 80, kItemGap = 10;
+constexpr int kGcItem = 7;
+constexpr int kBtItem = 8;
+constexpr float kListX = 90, kListY = 250, kListW = 540, kItemH = 62, kItemGap = 6;
 constexpr float kPanelX = 670, kPanelY = 250, kPanelW = 1160, kPanelH = 712;
 
 const Color kGood = rgba(0x7CF0B4);
@@ -77,6 +86,64 @@ Line bar_line(const db::Status &s)
     case db::BarState::HeldByGame: return {tr("In use by the game"), kSoft};
     }
     return {"", kSoft};
+}
+
+/* A device's entry is shown only while it's plugged in (not everyone has a
+ * DolphinBar or the Switch 2's GameCube controller); the DualSense always. */
+bool shown(int item, const db::Status &d, const gc::Status &c, const bt::Status &b)
+{
+    if (item == kGcItem)
+        return c.link != gc::Link::NotConnected;
+    if (item == kBtItem)
+        return b.phase != bt::Phase::Idle && b.phase != bt::Phase::Searching && b.phase != bt::Phase::NotFound;
+    if (item >= 1) /* the DolphinBar, its Remotes and their speaker, the Wii Remotes setting */
+        return d.bar != db::BarState::NotConnected;
+    return true;
+}
+
+std::vector<int> shown_items()
+{
+    const db::Status d = db::status();
+    const gc::Status c = gc::status();
+    const bt::Status b = bt::status();
+    std::vector<int> out;
+    for (int i = 0; i < kItems; ++i)
+        if (shown(i, d, c, b))
+            out.push_back(i);
+    return out;
+}
+
+Line gc_line(const gc::Status &s)
+{
+    switch (s.link)
+    {
+    case gc::Link::NotConnected: return {tr("Not connected"), kOff};
+    case gc::Link::Opening:
+    case gc::Link::Starting: return {tr("Setting up\xE2\x80\xA6"), kWarn};
+    case gc::Link::Failed: return {tr("Set-up failed"), kDanger};
+    case gc::Link::Ready: return {s.bluetooth ? tr("Connected (Bluetooth)") : tr("Connected (USB)"), kGood};
+    }
+    return {"", kOff};
+}
+
+Line bt_line(const bt::Status &s)
+{
+    switch (s.phase)
+    {
+    case bt::Phase::Idle: return {tr("Not checked yet"), kOff};
+    case bt::Phase::Searching: return {tr("Checking\xE2\x80\xA6"), kWarn};
+    case bt::Phase::NotFound: return {tr("Not connected"), kOff};
+    case bt::Phase::Starting: return {tr("Setting up\xE2\x80\xA6"), kWarn};
+    case bt::Phase::Scanning:
+        if (s.link == bt::Link::Ready)
+            return {tr("Controller connected"), kGood};
+        if (s.link != bt::Link::None)
+            return {tr("Connecting\xE2\x80\xA6"), kWarn};
+        return {tr("Ready") + " \xC2\xB7 " + s.chip, kIcy};
+    case bt::Phase::Done: return {s.chip, kGood};
+    case bt::Phase::Failed: return {tr("Set-up failed"), kDanger};
+    }
+    return {"", kOff};
 }
 
 std::string ext_label(db::Extension e) { return tr(db::extension_name(e)); }
@@ -250,11 +317,31 @@ std::string App::controller_row_value(int which, std::string *help) const
                          {"n", std::to_string(s.interfaces.size())}});
         return bar_line(s).text;
     }
+    if (which == 6)
+        return gc_line(gc::status()).text;
+    if (which == 7)
+        return bt_line(bt::status()).text;
     return remote_line(s, which - 2).text;
+}
+
+std::string App::controllers_present() const
+{
+    const std::vector<int> items = shown_items();
+    std::string out;
+    for (int i : items)
+        out += char('a' + i);
+    return out;
 }
 
 void App::refresh_controller_rows()
 {
+    /* a device plugged in or out: its rows come or go */
+    if (controllers_present() != ctl_rows_present_)
+    {
+        const int row = settings_row_;
+        build_settings();
+        settings_row_ = std::clamp(row, 0, int(rows_.size()) - 1);
+    }
     for (SettingRow &r : rows_)
         if (r.live >= 0)
         {
@@ -301,10 +388,14 @@ void App::open_controllers(int select)
 App::Action App::update_controllers(bool up, bool down, bool left, bool right)
 {
     const int before = ctl_sel_;
-    if (up && ctl_sel_ > 0)
-        --ctl_sel_;
-    if (down && ctl_sel_ + 1 < kItems)
-        ++ctl_sel_;
+    const std::vector<int> items = shown_items();
+    auto at = std::find(items.begin(), items.end(), ctl_sel_);
+    if (at == items.end())
+        ctl_sel_ = 0; /* what was chosen is gone */
+    else if (up && at != items.begin())
+        ctl_sel_ = *(at - 1);
+    else if (down && at + 1 != items.end())
+        ctl_sel_ = *(at + 1);
     if (ctl_sel_ != before)
         sfx(Sound::MenuScroll);
     if (ctl_sel_ == kItems - 1 && (left || right || pressed(BtnCross)))
@@ -345,6 +436,20 @@ App::Action App::update_controllers(bool up, bool down, bool left, bool right)
                 db::speaker_volume(ctl_spk_slot_, r.speaker_volume + 1);
         }
     }
+    if (ctl_sel_ == kBtItem && pressed(BtnCross))
+    {
+        bt::clear_found();
+        sfx(Sound::MenuScroll);
+    }
+    /* its rumble: Square, or its own X (on its page its buttons aren't the menu's) */
+    static bool gc_x_was = false;
+    const bool gc_x = (gc::pad().buttons & gc::GcX) != 0;
+    if (ctl_sel_ == kGcItem && (pressed(BtnSquare) || (gc_x && !gc_x_was)) && gc::connected())
+    {
+        gc::test_rumble(400);
+        sfx(Sound::MenuScroll);
+    }
+    gc_x_was = gc_x;
     const int slot = ctl_sel_ - 2;
     if (slot >= 0 && slot < 4)
     {
@@ -394,17 +499,22 @@ void App::draw_controllers(double time)
     g.text(Font::Bold, ts(54), 90, 132, kWhite, Align::Left, tr("Controllers & Accessories"));
     {
         const int pads = porpoise::pad::connected_count();
-        std::string sub = plural(pads, "1 DualSense", "{n} DualSense controllers") + "   \xC2\xB7   " +
-                          tr("Mayflash DolphinBar") + ": " + bar_line(s).text;
+        std::string sub = plural(pads, "1 DualSense", "{n} DualSense controllers");
+        if (s.bar != db::BarState::NotConnected)
+            sub += "   \xC2\xB7   " + tr("Mayflash DolphinBar") + ": " + bar_line(s).text;
         if (s.bar == db::BarState::Ready)
             sub += "   \xC2\xB7   " + plural(connected_remotes(s), "1 Wii Remote", "{n} Wii Remotes");
+        if (gc::connected())
+            sub += "   \xC2\xB7   " + tr("Switch 2 GameCube Controller");
         g.text(Font::SemiBold, ts(28), 92, 200, kLavender, Align::Left, fit(g, Font::SemiBold, ts(28), sub, 1740));
     }
 
-    /* ---- the list ---- */
-    for (int i = 0; i < kItems; ++i)
+    /* ---- the list: what's plugged in ---- */
+    const std::vector<int> items = shown_items();
+    for (std::size_t row = 0; row < items.size(); ++row)
     {
-        const float y = kListY + float(i) * (kItemH + kItemGap) + (i == kItems - 1 ? 18 : 0);
+        const int i = items[row];
+        const float y = kListY + float(row) * (kItemH + kItemGap) + (i == kItems - 1 ? 18 : 0);
         const bool on = i == ctl_sel_;
         std::string name;
         Line st;
@@ -434,6 +544,16 @@ void App::draw_controllers(double time)
                  : r.speaker_on      ? Line{tr("On"), kGood}
                                      : Line{tr("Off"), kSoft};
         }
+        else if (i == kGcItem)
+        {
+            name = tr("Switch 2 GameCube Controller");
+            st = gc_line(gc::status());
+        }
+        else if (i == kBtItem)
+        {
+            name = tr("USB Bluetooth Adapter");
+            st = bt_line(bt::status());
+        }
         else
         {
             name = tr("Wii Remotes in games");
@@ -441,15 +561,15 @@ void App::draw_controllers(double time)
         }
         g.panel(kListX, y, kListW, kItemH, on ? rgba(0x1C48D8, 0.55f) : rgba(0x0A1236, 0.55f), 1, kR,
                 on ? kIcy : rgba(0x3D5AB0, 0.7f), on ? 3.0f : 1.4f, on ? 12 : 0);
-        g.text_mid(Font::Bold, ts(27), kListX + 26, y + 26, kWhite, Align::Left,
-                   fit(g, Font::Bold, ts(27), name, kListW - 50));
-        g.panel(kListX + 26, y + 50, 12, 12, st.colour, 1, 6);
-        g.text_mid(Font::SemiBold, ts(21), kListX + 48, y + 56, st.colour, Align::Left,
-                   fit(g, Font::SemiBold, ts(22), st.text, kListW - 80));
+        g.text_mid(Font::Bold, ts(26), kListX + 26, y + 20, kWhite, Align::Left,
+                   fit(g, Font::Bold, ts(26), name, kListW - 50));
+        g.panel(kListX + 26, y + 37, 12, 12, st.colour, 1, 6);
+        g.text_mid(Font::SemiBold, ts(21), kListX + 48, y + 43, st.colour, Align::Left,
+                   fit(g, Font::SemiBold, ts(21), st.text, kListW - 80));
         if (i == kItems - 1 && on)
         {
-            g.glyph(Glyph::Arrow, kListX + kListW - 60, y + 40, 18, kIcy, kPi * 1.5f);
-            g.glyph(Glyph::Arrow, kListX + kListW - 28, y + 40, 18, kIcy, kPi * 0.5f);
+            g.glyph(Glyph::Arrow, kListX + kListW - 60, y + 31, 18, kIcy, kPi * 1.5f);
+            g.glyph(Glyph::Arrow, kListX + kListW - 28, y + 31, 18, kIcy, kPi * 0.5f);
         }
     }
 
@@ -865,6 +985,206 @@ void App::draw_controllers(double time)
             }
         }
     }
+    else if (ctl_sel_ == kGcItem)
+    {
+        const gc::Status c = gc::status();
+        heading(tr("Switch 2 GameCube Controller"), px, y);
+        const Line st = gc_line(c);
+        g.text(Font::Bold, ts(26), px + pw, y, st.colour, Align::Right, fit(g, Font::Bold, ts(26), st.text, 600));
+        y += 52;
+        auto row = [&](float rx, float &ry, const std::string &label, const std::string &value, Color col) {
+            g.text(Font::SemiBold, ts(22), rx, ry, kLavender, Align::Left, label);
+            g.text(Font::Regular, ts(22), rx + 220, ry, col, Align::Left, fit(g, Font::Regular, ts(22), value, 320));
+            ry += 34;
+        };
+        if (c.link != gc::Link::Ready)
+        {
+            std::string why;
+            Color col = kSoft;
+            if (c.link == gc::Link::NotConnected)
+                why = tr("Plug the GameCube controller for Nintendo Switch 2 into a USB port of the PS5 with a USB-C "
+                         "data cable. It shows up here by itself and plays player 1's GameCube controller in games, "
+                         "beside the DualSense; HOME opens Porpoise's menu.");
+            else if (c.link == gc::Link::Failed)
+            {
+                why = trf("Setting it up failed: {step} (error {errno}). It's tried again by itself; if it stays, "
+                          "unplug it and plug it in again.",
+                          {{"step", c.failed_step}, {"errno", std::to_string(c.failed_errno)}});
+                col = kWarn;
+            }
+            else
+                why = tr("Found. Reading its calibration and starting its input\xE2\x80\xA6");
+            para(why, col, px, y, pw);
+            if (!c.node.empty())
+            {
+                y += 14;
+                row(px, y, tr("USB device"), "057E:2073   /dev/" + c.node, kWhite);
+                row(px, y, tr("Product name"), c.product.empty() ? tr("(none)") : c.product, kWhite);
+                row(px, y, tr("Set-up"),
+                    trf("{ok} of {n} commands answered",
+                        {{"ok", std::to_string(c.commands_ok)}, {"n", std::to_string(c.commands_sent)}}),
+                    c.commands_ok == c.commands_sent ? kWhite : kWarn);
+                row(px, y, tr("System driver"),
+                    c.kernel_driver[0] == 1 ? tr("system driver attached")
+                    : c.kernel_driver[0] == 0 ? tr("no system driver")
+                                              : "?",
+                    kWhite);
+            }
+        }
+        else
+        {
+            /* left: the buttons and what it is; right: the sticks, the triggers */
+            const float lx = px, rx = px + 590;
+            float ly = y, ry = y;
+            heading(tr("Buttons"), lx, ly);
+            ly += 44;
+            static const struct
+            {
+                std::uint32_t bit;
+                const char *name;
+            } kPills[16] = {{gc::GcA, "A"},         {gc::GcB, "B"},       {gc::GcX, "X"},         {gc::GcY, "Y"},
+                            {gc::GcL, "L"},         {gc::GcR, "R"},       {gc::GcZ, "Z"},         {gc::GcZL, "ZL"},
+                            {gc::GcUp, "^"},        {gc::GcDown, "v"},    {gc::GcLeft, "<"},      {gc::GcRight, ">"},
+                            {gc::GcStart, "START"}, {gc::GcHome, "HOME"}, {gc::GcCapture, "Capture"}, {gc::GcC, "C"}};
+            for (int i = 0; i < 16; ++i)
+                pill(g, k, lx + float(i % 4) * 134, ly + float(i / 4) * 52, 122,
+                     kPills[i].bit == gc::GcCapture ? tr(kPills[i].name) : kPills[i].name, c.buttons & kPills[i].bit);
+            ly += 4 * 52 + 16;
+            char raw[96];
+            std::snprintf(raw, sizeof raw, "%02X %02X %02X", c.raw_buttons[0], c.raw_buttons[1], c.raw_buttons[2]);
+            row(lx, ly, tr("Button bytes"), raw, kSoft);
+            std::snprintf(raw, sizeof raw, "%.0f / s", c.report_rate);
+            row(lx, ly, tr("Reports"), raw, c.report_rate > 30 ? kGood : kWarn);
+            row(lx, ly, tr("Calibration"),
+                c.stick_calibration ? (c.trigger_calibration ? tr("its own") : tr("its own (sticks only)"))
+                                    : tr("not read: estimated"),
+                c.stick_calibration ? kWhite : kWarn);
+            if (!c.serial.empty())
+                row(lx, ly, tr("Serial number"), c.serial, kWhite);
+            if (c.bluetooth)
+                row(lx, ly, tr("Bluetooth"), c.node, kWhite);
+            else
+                row(lx, ly, tr("USB device"), "057E:2073   /dev/" + c.node, kWhite);
+            ly += 10;
+            para(tr("In games: player 1's GameCube controller, beside the DualSense. HOME opens Porpoise's menu."),
+                 kSoft, lx, ly, 540);
+
+            heading(tr("Sticks"), rx, ry);
+            ry += 44;
+            const float r = 62;
+            stick(g, rx + r + 20, ry + r, r, c.lx, c.ly, kIcy);
+            stick(g, rx + 3 * r + 120, ry + r, r, c.rx, c.ry, rgba(0xFFD24A));
+            ry += 2 * r + 14;
+            g.text(Font::SemiBold, ts(21), rx + r + 20, ry, kSoft, Align::Center, tr("Control Stick"));
+            g.text(Font::SemiBold, ts(21), rx + 3 * r + 120, ry, kSoft, Align::Center, tr("C-Stick"));
+            ry += 34;
+            std::snprintf(raw, sizeof raw, "%d %d   %d %d", c.raw_stick[0], c.raw_stick[1], c.raw_stick[2],
+                          c.raw_stick[3]);
+            g.text(Font::Regular, ts(20), rx, ry, kSoft, Align::Left, tr("Raw") + ": " + raw);
+            ry += 44;
+            heading(tr("Triggers"), rx, ry);
+            ry += 46;
+            const float bw = 330;
+            g.text_mid(Font::Bold, ts(22), rx, ry + 7, kWhite, Align::Left, "L");
+            level_bar(g, rx + 40, ry, bw, c.lt, kIcy);
+            std::snprintf(raw, sizeof raw, "%3.0f %%  (%d)", c.lt * 100.0f, c.raw_trigger[0]);
+            g.text_mid(Font::Regular, ts(20), rx + 60 + bw, ry + 7, kSoft, Align::Left, raw);
+            ry += 36;
+            g.text_mid(Font::Bold, ts(22), rx, ry + 7, kWhite, Align::Left, "R");
+            level_bar(g, rx + 40, ry, bw, c.rt, kIcy);
+            std::snprintf(raw, sizeof raw, "%3.0f %%  (%d)", c.rt * 100.0f, c.raw_trigger[1]);
+            g.text_mid(Font::Regular, ts(20), rx + 60 + bw, ry + 7, kSoft, Align::Left, raw);
+            ry += 46;
+            g.text(Font::SemiBold, ts(22), rx, ry, c.rumbling ? kGood : kSoft, Align::Left,
+                   tr("Rumble") + ": " + (c.rumbling ? tr("On") : tr("Off")));
+        }
+    }
+    else if (ctl_sel_ == kBtItem)
+    {
+        const bt::Status b = bt::status();
+        heading(tr("USB Bluetooth Adapter"), px, y);
+        const Line st = bt_line(b);
+        g.text(Font::Bold, ts(26), px + pw, y, st.colour, Align::Right, fit(g, Font::Bold, ts(26), st.text, 600));
+        y += 52;
+        auto row = [&](const std::string &label, const std::string &value, Color col) {
+            g.text(Font::SemiBold, ts(22), px, y, kLavender, Align::Left, label);
+            g.text(Font::Regular, ts(22), px + 260, y, col, Align::Left, fit(g, Font::Regular, ts(22), value, pw - 270));
+            y += 34;
+        };
+        if (b.phase == bt::Phase::Idle || b.phase == bt::Phase::NotFound)
+        {
+            para(tr("The Switch 2's GameCube controller without its cable: plug a USB Bluetooth adapter into the "
+                    "PS5 (TP-Link UB600 or another with a Realtek RTL8761B/C). It's found by itself and given its "
+                    "firmware. Then press the SYNC button on top of the controller: it connects and "
+                    "plays as by cable. The PS5's own Bluetooth isn't used."),
+                 kSoft, px, y, pw);
+        }
+        else
+        {
+            char v[96];
+            std::snprintf(v, sizeof v, "%04X:%04X   /dev/%s", b.vid, b.pid, b.node.c_str());
+            row(tr("USB device"), v, kWhite);
+            if (!b.product.empty())
+                row(tr("Product name"), b.product, kWhite);
+            if (b.have_version)
+            {
+                std::snprintf(v, sizeof v, "   (HCI %02X rev %04X, LMP %02X sub %04X)", b.hci_ver, b.hci_rev,
+                              b.lmp_ver, b.lmp_subver);
+                row(tr("Chip"), b.chip + v, kWhite);
+            }
+            if (b.rom_version >= 0)
+                row(tr("ROM version"), std::to_string(b.rom_version), kWhite);
+            if (!b.firmware.empty())
+                row(tr("Firmware"), b.firmware, b.firmware_ok ? kGood : kWarn);
+            if (b.have_addr)
+                row(tr("Address"), bt::address_text(b.bd_addr) + (b.le ? "   Bluetooth LE" : ""), kWhite);
+            if (b.phase == bt::Phase::Failed)
+                row(tr("Failed"), b.step + " (" + std::to_string(b.error) + ")", kDanger);
+            if (b.phase == bt::Phase::Scanning)
+            {
+                std::string link;
+                Color col = kSoft;
+                if (b.link == bt::Link::None)
+                    link = tr("Press the SYNC button on top of the controller.");
+                else
+                {
+                    char d[96];
+                    std::snprintf(d, sizeof d, "   %.2f ms, MTU %d, %d/%d, %u", b.interval_x125 * 1.25, b.att_mtu,
+                                  b.commands_ok, b.commands_sent, b.notifications);
+                    link = bt::address_text(b.peer) + "   " +
+                           (b.link == bt::Link::Ready ? tr("connected") : b.link_step) + d;
+                    col = b.link == bt::Link::Ready ? kGood : kWarn;
+                }
+                row(tr("Controller"), link, col);
+                if (b.link == bt::Link::None && !b.link_step.empty())
+                    row("", b.link_step + (b.last_disconnect >= 0
+                                               ? "  (" + std::to_string(b.last_disconnect) + ")"
+                                               : std::string()),
+                        kWarn);
+            }
+            y += 10;
+            if (b.phase == bt::Phase::Scanning || b.phase == bt::Phase::Done)
+            {
+                heading(tr("Bluetooth LE devices"), px, y);
+                y += 44;
+                if (b.found.empty())
+                    g.text(Font::Regular, ts(22), px, y, kSoft, Align::Left, tr("None yet."));
+                int shown = 0;
+                for (const bt::Found &f : b.found)
+                {
+                    if (shown++ == 7)
+                        break;
+                    std::string line = bt::address_text(f.addr) + "   " + std::to_string(f.rssi) + " dBm   ";
+                    if (f.nintendo)
+                        line += "Nintendo   ";
+                    line += f.name.empty() ? "" : "\xE2\x80\x9C" + f.name + "\xE2\x80\x9D";
+                    g.text(Font::Regular, ts(22), px, y, f.nintendo ? kGood : kWhite, Align::Left,
+                           fit(g, Font::Regular, ts(22), line, pw));
+                    y += 32;
+                }
+            }
+        }
+    }
     else
     {
         heading(tr("Wii Remotes in games"), px, y);
@@ -889,6 +1209,10 @@ void App::draw_controllers(double time)
     else if (ctl_sel_ >= 2 && ctl_sel_ < kSpeakerItem && s.remote[ctl_sel_ - 2].state == db::SlotState::Connected)
         draw_prompts({{Glyph::DPad, "Choose"}, {Glyph::Square, "Rumble"}, {Glyph::Triangle, "Check Again"}},
                      {{Glyph::Circle, "Back"}}, "");
+    else if (ctl_sel_ == kGcItem && gc::connected())
+        draw_prompts({{Glyph::DPad, "Choose"}, {Glyph::Square, "Rumble"}}, {{Glyph::Circle, "Back"}}, "");
+    else if (ctl_sel_ == kBtItem)
+        draw_prompts({{Glyph::DPad, "Choose"}, {Glyph::Cross, "Clear List"}}, {{Glyph::Circle, "Back"}}, "");
     else if (ctl_sel_ == kItems - 1)
         draw_prompts({{Glyph::DPad, "Choose"}, {Glyph::Cross, "Change"}}, {{Glyph::Circle, "Back"}}, "");
     else

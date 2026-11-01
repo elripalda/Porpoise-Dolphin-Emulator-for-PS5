@@ -68,6 +68,16 @@ Porpoise builds Dolphin from libretro/dolphin revision
 | Widescreen codes collected by **Warped Polygon** | The GameCube widescreen codes in `assets/widescreen` (cleaned by `tools/make-widescreen.py`), which play games in true 16:9 | the collection's own |
 | 16:9 codes for Virtual Console N64 games from **Admentus64**'s Enhancement Codes (with gamemasterplc and the codes' other authors) | Optional 16:9 codes in Cheats and Patches for the Wii's Virtual Console N64 games, in `assets/widescreen` | GPL-3.0 |
 
+## Controllers
+
+| Project | Role in Porpoise | License |
+|---|---|---|
+| [BlueV](https://github.com/0xZ3n0x/BlueV) by **0xZ3n0x** | Showed that a PS5 title can talk to USB devices through their `ugen` nodes, and the console's `USB_DEVICEINFO` number; Porpoise's own USB code (`src/porpoise_usbhid.cpp`, `src/porpoise_ns2gc.cpp`, `src/porpoise_bt.cpp`) follows that approach | reference only |
+| [SDL](https://github.com/libsdl-org/SDL)'s HIDAPI Switch 2 driver by **Valve Corporation** and the SDL contributors | The USB set-up of the Switch 2's GameCube controller, its flash calibration, its input report and rumble, as `src/porpoise_ns2gc.cpp` reimplements them | zlib (reference) |
+| [switch2_controller_research](https://github.com/ndeadly/switch2_controller_research) by **ndeadly** | The Switch 2 controllers' Bluetooth LE advertisements, GATT handles, commands and report formats | reference |
+| [switch2-controllers-linux](https://github.com/Nitrama/switch2-controllers-linux) by **Nitrama** | The Bluetooth set-up that brings the GameCube controller's input over a raw ATT channel, its pairing values and its rumble presets, as `src/porpoise_bt.cpp` reimplements them | MIT (reference) |
+| Linux's `btrtl` driver and [linux-firmware](https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git) | How a Realtek RTL8761B/C USB Bluetooth adapter is given its patch (reimplemented in `src/porpoise_bt.cpp`), and the patch files themselves, shipped unmodified in `assets/bluetooth` | GPL-2.0 (reference); Realtek's redistributable licence (`assets/bluetooth/LICENCE.rtlwifi_firmware.txt`) |
+
 ## The PS5 scene
 
 - **etaHEN**, **kstuff** and **ShadowMountPlus**, which make running homebrew

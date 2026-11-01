@@ -51,6 +51,11 @@ void set_detach_kernel_driver(bool on);
 void set_speaker_enabled(bool on);
 bool speaker_enabled();
 
+/* A ugen node another part of Porpoise has open (the Switch 2's GameCube
+ * controller, porpoise_ns2gc.cpp): never opened here to see what it is, and
+ * not counted among the nodes access was refused to. */
+void set_node_in_use(const std::string &node, bool in_use);
+
 /* What the module sees, for Porpoise's screens and the test payloads. */
 struct InterfaceStatus
 {

@@ -623,8 +623,9 @@ int App::update_game_menu(const Input &in, double dt)
 {
     time_ += dt;
     prev_ = held_;
-    follow_last_controller(in.held, in.wii);
-    held_ = in.held | in.wii;
+    const std::uint32_t gc = gc_menu_bits(); /* the Switch 2's GameCube controller */
+    follow_last_controller(in.held, in.wii, true, gc);
+    held_ = in.held | in.wii | gc;
     raw_prev_ = raw_held_;
     raw_held_ = in.held;
     if (in.stick_y < -0.55f) held_ |= BtnUp;

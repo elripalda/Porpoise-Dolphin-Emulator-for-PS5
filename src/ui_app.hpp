@@ -111,6 +111,11 @@ struct TexturePack
  * DualSense's: D-pad, A Cross, B Circle, + R1, - L1, 1 Triangle, 2 R2; C Options,
  * Z Square, the stick the D-pad. */
 std::uint32_t wii_menu_bits(std::uint16_t remote_buttons);
+/* The Switch 2's GameCube controller (porpoise_ns2gc.hpp) in the menus, as the
+ * DualSense's buttons: A Cross, B Circle, X Square, Y Triangle, START Options,
+ * Z R1, ZL L1, L and R (or their triggers pressed) L2 and R2, the D-pad and
+ * the control stick the D-pad. 0 when it isn't plugged in. */
+std::uint32_t gc_menu_bits();
 
 class App
 {
@@ -1351,6 +1356,11 @@ private:
     void draw_controllers(double time);
     std::string controller_row_value(int which, std::string *help) const;
     void refresh_controller_rows();
+    /* Which of Controllers & Accessories' devices are plugged in, as the
+     * settings section was last built with them (it's built again when that
+     * changes): one letter each. */
+    std::string controllers_present() const;
+    std::string ctl_rows_present_;
     int ctl_sel_ = 1;
     Screen ctl_back_ = Screen::Main;
     std::string ctl_diag_logged_;
@@ -1587,8 +1597,11 @@ private:
     std::uint32_t raw_held_ = 0, raw_prev_ = 0; /* the buttons alone, without the stick as a D-pad */
     /* Whichever was pressed last, the Wii Remote or the DualSense, has its
      * buttons in the prompts (Gfx::set_wii_buttons). */
-    std::uint32_t wii_prev_ = 0;
-    void follow_last_controller(std::uint32_t pad_held, std::uint32_t wii_held, bool remote_there = true);
+    std::uint32_t wii_prev_ = 0, gc_prev_ = 0;
+    /* The prompts show the buttons of the controller pressed last: the
+     * DualSense's, a Wii Remote's or the Switch 2 GameCube controller's. */
+    void follow_last_controller(std::uint32_t pad_held, std::uint32_t wii_held, bool remote_there = true,
+                                std::uint32_t gc_held = 0);
     float rep_left_ = 0, rep_right_ = 0, rep_up_ = 0, rep_down_ = 0;
     double nav_held_ = 0; /* how long a direction has been held in the library (speeds it up) */
     float lib_rep_l2_ = 0, lib_rep_r2_ = 0; /* the library's L2 / R2 letter jumps (not Details' timers) */
