@@ -323,6 +323,9 @@ extern "C" void *__wrap_calloc(size_t count, size_t size)
     void *p = bytes < threshold ? overflow_calloc(1, bytes ? bytes : 1) : allocate(bytes);
     if (!p && bytes < threshold)
         p = bytes ? __real_calloc(count, size) : __real_calloc(1, 1);
+    // Large allocations may reuse direct memory, which is not zero-filled.
+    if (p && bytes >= threshold)
+        std::memset(p, 0, bytes);
     if (p)
         ps5::memory::add({p, bytes, caller,
                           bytes < threshold && !overflow_owns(p) ? ps5::memory::Route::Native
