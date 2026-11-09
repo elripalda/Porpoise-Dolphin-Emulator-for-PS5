@@ -1707,7 +1707,7 @@ long long tree_bytes(const std::string &dir)
     return n;
 }
 
-/* Copies dir's contents into to; false on a failed write or a stop. The
+/* Copies dir's contents into to; false on a failed read, write or a stop. The
  * pointer file itself (location.txt) stays behind. */
 bool copy_into(const std::string &dir, const std::string &to, bool top, std::vector<char> &buf)
 {
@@ -1717,8 +1717,17 @@ bool copy_into(const std::string &dir, const std::string &to, bool top, std::vec
     if (!d)
         return false;
     bool ok = true;
-    while (dirent *e = readdir(d))
+    for (;;)
     {
+        /* A directory read error is not its end: an incomplete copy must
+         * never let the mover switch folders and remove the originals. */
+        errno = 0;
+        dirent *e = readdir(d);
+        if (!e)
+        {
+            ok = errno == 0;
+            break;
+        }
         const std::string name = e->d_name;
         if (name == "." || name == ".." || (top && (name == "location.txt" || name == ".write-test")))
             continue;
@@ -1730,7 +1739,10 @@ bool copy_into(const std::string &dir, const std::string &to, bool top, std::vec
         const std::string src = dir + "/" + name, dst = to + "/" + name;
         struct stat st;
         if (stat(src.c_str(), &st) != 0)
-            continue;
+        {
+            ok = false;
+            break;
+        }
         if (S_ISDIR(st.st_mode))
         {
             if (!copy_into(src, dst, false, buf))
@@ -1756,7 +1768,10 @@ bool copy_into(const std::string &dir, const std::string &to, bool top, std::vec
             g_mover.done += (long long)n;
         }
         if (in)
+        {
+            file_ok = file_ok && !std::ferror(in);
             std::fclose(in);
+        }
         if (out)
             file_ok = std::fclose(out) == 0 && file_ok;
         if (!file_ok || g_mover.stop.load())
