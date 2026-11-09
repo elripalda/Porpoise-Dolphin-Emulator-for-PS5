@@ -228,8 +228,9 @@ public:
             for (int n = 2; exists(aside) && n < 100; ++n)
                 aside = kept_root + path + "." + std::to_string(n);
             make_dirs(aside.substr(0, aside.rfind('/')));
-            if (!exists(aside) && std::rename(dest.c_str(), aside.c_str()) == 0)
-                ++p->kept;
+            if (exists(aside) || std::rename(dest.c_str(), aside.c_str()) != 0)
+                return false; /* Never replace an original that could not be kept. */
+            ++p->kept;
         }
         std::FILE *out = std::fopen(dest.c_str(), "wb");
         if (!out)
