@@ -648,6 +648,10 @@ void App::add_game_rows(Settings &t, bool per_game)
     choice("volume", "Game Volume", "Volume of the game's sound.", &t.volume, 0,
            {"0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"});
     toggle("muted", "Mute Game", "Silences the game.", &t.muted);
+    toggle("audio_surround", "Surround Sound",
+           "Decodes 5.1 Dolby Pro Logic II surround sound (requires Sound Preset other than Classic). On Wii, sets "
+           "console sound to Surround; some Nintendo games also need Accurate Audio.",
+           &t.audio_surround);
     toggle("dsp_accurate", "Accurate Audio",
            "Dolphin's exact sound chip (LLE) instead of its fast one: fixes missing or wrong sound in a few games, but "
            "needs much more of the processor. Best turned on for one game.",

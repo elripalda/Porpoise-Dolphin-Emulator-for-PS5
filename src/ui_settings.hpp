@@ -232,6 +232,7 @@ struct Settings
      * gaps when a game runs slow; off is Classic (2.1's, pushed). */
     bool audio_pull = true;
     bool audio_fill = true;
+    bool audio_surround = false; /* 5.1 surround via Dolphin DPL2 decoder + Wii Sound Mode */
     /* Sound presets (Settings > Audio): Smooth, Responsive, Extra smooth,
      * Classic; kAudioCustom when the rows match none. */
     static constexpr int kAudioPresets = 4;

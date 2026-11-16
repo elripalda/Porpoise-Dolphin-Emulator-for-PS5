@@ -642,7 +642,8 @@ extern "C"
             if (!g_ports[i].stream)
             {
                 Port &p = g_ports[i];
-                p.channels = (param & 0xff) == 0 ? 1 : 2;
+                const std::uint8_t format = static_cast<std::uint8_t>(param & 0xff);
+                p.channels = format == 0 ? 1 : (format == 2 || format == 4) ? 8 : 2;
                 p.grain = len;
                 SDL_AudioSpec spec{SDL_AUDIO_S16, p.channels, int(freq)};
                 p.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);

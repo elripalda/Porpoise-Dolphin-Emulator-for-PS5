@@ -1411,6 +1411,11 @@ int menu_paused(void *)
         porpoise::audio::set_volume(g_play.volume / 10.0f);
     else if (key == "muted")
         porpoise::audio::set_muted(g_play.muted);
+    else if (key == "audio_surround")
+    {
+        porpoise::audio::set_surround(g_play.audio_surround);
+        porpoise::core::set_option("dolphin_audio_surround", g_play.audio_surround ? "enabled" : "disabled");
+    }
     else if (key == "audio_preset" || key == "audio_buffer" || key == "audio_fill" || key == "audio_stretch" ||
              key == "audio_pull")
     {
@@ -3299,6 +3304,7 @@ int main(int argc, char **argv)
         playback.audio_pull = g_play.audio_pull;
         playback.audio_buffer_ms = g_play.audio_buffer_ms();
         playback.audio_fill = g_play.audio_fill;
+        playback.audio_surround = g_play.audio_surround;
         g_wii_hint_from = g_time + 2.0; /* once the game is up */
         g_wii_centrings = 0;
         const std::string debug_dir = g_data + "/debug";

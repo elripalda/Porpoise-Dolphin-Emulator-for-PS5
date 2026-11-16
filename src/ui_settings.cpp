@@ -117,6 +117,7 @@ const Field kFields[] = {
     {"audio_stretch", nullptr, &Settings::audio_stretch, 0, 1},
     {"audio_pull", nullptr, &Settings::audio_pull, 0, 1},
     {"audio_fill", nullptr, &Settings::audio_fill, 0, 1},
+    {"audio_surround", nullptr, &Settings::audio_surround, 0, 1},
     {"microphone", nullptr, &Settings::microphone, 0, 1},
     {"wii_widescreen", nullptr, &Settings::wii_widescreen, 0, 1},
     {"pal60", nullptr, &Settings::pal60, 0, 1},
@@ -244,7 +245,7 @@ const char *const kManaged[] = {
     "dolphin_disable_fog", "dolphin_crop_overscan", "dolphin_load_custom_textures",
     "dolphin_cache_custom_textures", "dolphin_skip_dupe_frames", "dolphin_mods_enabled", "dolphin_enable_rumble", "dolphin_cpu_clock_rate",
     "dolphin_main_cpu_thread", "dolphin_accurate_fmadds", "dolphin_osd_enabled", "dolphin_fast_disc_speed", "dolphin_log_level", "dolphin_cheats_enabled", "dolphin_language",
-    "dolphin_progressive_scan", "dolphin_dsp_hle", "dolphin_dsp_jit", "dolphin_enable_gamecube_mic",
+    "dolphin_progressive_scan", "dolphin_audio_surround", "dolphin_dsp_hle", "dolphin_dsp_jit", "dolphin_enable_gamecube_mic",
     "dolphin_hotkey_activate_microphone", "dolphin_wiispeak_enable", "dolphin_wiispeak_muted", "dolphin_widescreen",
     "dolphin_pal60", "dolphin_sensor_bar_position", "dolphin_wait_for_shaders", "dolphin_fast_float_math", "dolphin_disc_based_games_boot_to_wii_menu", "dolphin_skip_gc_bios",
     /* Set per game from its Dolphin settings (porpoise_main.cpp, kGameOptions). */
@@ -1041,6 +1042,7 @@ std::vector<std::pair<std::string, std::string>> Settings::core_options() const
         {"dolphin_language", std::to_string(kLanguages[std::clamp(language, 0, 9)])},
         {"dolphin_progressive_scan", on_off(progressive)},
         /* Sound: HLE unless the game asks for the exact DSP. */
+        {"dolphin_audio_surround", on_off(audio_surround)},
         {"dolphin_dsp_hle", on_off(!dsp_accurate)},
         {"dolphin_dsp_jit", "enabled"},
         /* The microphone; the GameCube Microphone's button is R3 (no
