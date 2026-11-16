@@ -490,10 +490,10 @@ index a57b6024b7..bb0e16e616 100644
        // Jump the playhead to half the queue size behind the head.
        // This provides smoother audio playback than suddenly stopping.
 diff --git a/Source/Core/AudioCommon/Mixer.h b/Source/Core/AudioCommon/Mixer.h
-index aca334bcf8..e5ec5597ad 100644
+index aca334bcf8..b2ec8e8df6 100644
 --- a/Source/Core/AudioCommon/Mixer.h
 +++ b/Source/Core/AudioCommon/Mixer.h
-@@ -56,6 +56,15 @@ public:
+@@ -56,6 +56,16 @@ public:
    void StartLogDSPAudio(const std::string& filename);
    void StopLogDSPAudio();
  
@@ -505,11 +505,12 @@ index aca334bcf8..e5ec5597ad 100644
 +  // The DMA sound waiting, in granules, against the queue length the buffer size asks for,
 +  // and the DMA frames pushed so far (the emulated speed).
 +  void PorpoiseQueue(unsigned* queued, unsigned* target, unsigned long long* pushed) const;
++  void PorpoiseResetSurround() { m_surround_decoder.Clear(); }
 +
    // 54000000 doesn't work here as it doesn't evenly divide with 32000, but 108000000 does
    static constexpr u64 FIXED_SAMPLE_RATE_DIVIDEND = 54000000 * 2;
  
-@@ -132,6 +141,18 @@ private:
+@@ -132,6 +142,18 @@ private:
      void SetVolume(u32 lvolume, u32 rvolume);
      std::pair<s32, s32> GetVolume() const;
  
@@ -3815,7 +3816,7 @@ index 0000000000..ff7129fc3d
 +void Stop();
 +}  // namespace Libretro::Achievements
 diff --git a/Source/Core/DolphinLibretro/Audio.cpp b/Source/Core/DolphinLibretro/Audio.cpp
-index a96698067d..5f74d2dbe2 100644
+index a96698067d..338d7cb3b7 100644
 --- a/Source/Core/DolphinLibretro/Audio.cpp
 +++ b/Source/Core/DolphinLibretro/Audio.cpp
 @@ -1,9 +1,12 @@
@@ -3852,7 +3853,7 @@ index a96698067d..5f74d2dbe2 100644
    if (g_use_call_back_audio != CallBackMode::SYNC_PER_FRAME || !m_mixer || !batch_cb)
      return;
  
-@@ -451,6 +461,73 @@ void retroarch_audio_buffer_status_cb(bool active,
+@@ -451,6 +461,101 @@ void retroarch_audio_buffer_status_cb(bool active,
    Libretro::Audio::g_buf_underrun.store(underrun_likely, std::memory_order_relaxed);
  }
  
@@ -3879,9 +3880,16 @@ index a96698067d..5f74d2dbe2 100644
 +// Porpoise: the game's sound pulled at the speakers' pace, as Dolphin's own audio backends
 +// do, so Dolphin's mixer fills the gaps when a game runs slow (instead of the front end's
 +// queue running dry and crackling). pull 0 goes back to the sound pushed each frame.
++namespace
++{
++bool s_porpoise_last_surround = false;
++}
++
 +extern "C" __attribute__((visibility("default"))) int porpoise_audio_pull_config(int pull, int buffer_ms,
 +                                                                               int fill_gaps)
 +{
++  if (!pull)
++    s_porpoise_last_surround = false;
 +  Mixer::PorpoiseSetPull(pull != 0, buffer_ms, fill_gaps != 0);
 +  return 1;
 +}
@@ -3895,10 +3903,31 @@ index a96698067d..5f74d2dbe2 100644
 +  SoundStream* sound_stream = Core::System::GetInstance().GetSoundStream();
 +  if (!sound_stream || !sound_stream->GetMixer() || !stereo || !Mixer::PorpoiseIsPulling())
 +    return 0;
++  s_porpoise_last_surround = false;
 +  Mixer* mixer = sound_stream->GetMixer();
 +  if (out_rate >= 8000 && out_rate <= 192000 && mixer->GetSampleRate() != out_rate)
 +    mixer->SetSampleRate(out_rate);
 +  return mixer->Mix(stereo, frames);
++}
++
++// Mixes `frames` 6-channel float DPL2 surround frames (FL, FR, FC, LFE, BL, BR)
++// at out_rate. Resets the surround decoder when switching from stereo pull.
++extern "C" __attribute__((visibility("default"))) size_t porpoise_audio_pull_surround(float* six_ch, size_t frames,
++                                                                                    unsigned out_rate)
++{
++  std::lock_guard<std::mutex> lock(g_porpoise_sound_stream_lock);
++  SoundStream* sound_stream = Core::System::GetInstance().GetSoundStream();
++  if (!sound_stream || !sound_stream->GetMixer() || !six_ch || !Mixer::PorpoiseIsPulling())
++    return 0;
++  Mixer* mixer = sound_stream->GetMixer();
++  if (out_rate >= 8000 && out_rate <= 192000 && mixer->GetSampleRate() != out_rate)
++    mixer->SetSampleRate(out_rate);
++  if (!s_porpoise_last_surround)
++  {
++    mixer->PorpoiseResetSurround();
++    s_porpoise_last_surround = true;
++  }
++  return mixer->MixSurround(six_ch, frames);
 +}
 +
 +// The game's sound waiting (granules), the length the buffer size asks for, and the frames
@@ -3927,24 +3956,25 @@ index a96698067d..5f74d2dbe2 100644
  extern "C" {
  
 diff --git a/Source/Core/DolphinLibretro/Boot.cpp b/Source/Core/DolphinLibretro/Boot.cpp
-index c53281053f..e2260dc848 100644
+index c53281053f..838ec3cca8 100644
 --- a/Source/Core/DolphinLibretro/Boot.cpp
 +++ b/Source/Core/DolphinLibretro/Boot.cpp
-@@ -1,4 +1,5 @@
+@@ -1,11 +1,14 @@
  #include <cstdio>
 +#include "Common/CPUDetect.h"
  #include <libretro.h>
  #include <string>
  #include <functional>
-@@ -6,6 +7,7 @@
+ #include <filesystem>
  #include <fstream>
  
++#include "AudioCommon/Enums.h"
  #include "Common/CommonPaths.h"
 +#include "Core/HLE/HLE_PorpoiseWidescreen.h"
  #include "Core/CommonTitles.h"
  #include "Common/FileUtil.h"
  #include "Common/StringUtil.h"
-@@ -14,6 +16,7 @@
+@@ -14,6 +17,7 @@
  #include "Core/BootManager.h"
  #include "Core/Config/GraphicsSettings.h"
  #include "Core/Config/MainSettings.h"
@@ -3952,7 +3982,7 @@ index c53281053f..e2260dc848 100644
  #include "Core/Config/SYSCONFSettings.h"
  #include "Core/ConfigManager.h"
  #include "Core/Core.h"
-@@ -25,6 +28,16 @@
+@@ -25,6 +29,16 @@
  #include "Core/HW/WiimoteReal/WiimoteReal.h"
  #include "Core/PowerPC/PowerPC.h"
  #include "Core/System.h"
@@ -3969,7 +3999,7 @@ index c53281053f..e2260dc848 100644
  #include "DolphinLibretro/Audio.h"
  #include "DolphinLibretro/Input.h"
  #include "DolphinLibretro/Log.h"
-@@ -280,6 +293,8 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -280,6 +294,8 @@ bool retro_load_game(const struct retro_game_info* game)
    UICommon::Init();
    Libretro::Log::Init();
  
@@ -3978,7 +4008,7 @@ index c53281053f..e2260dc848 100644
    if (Libretro::GBPlayer_active)
    {
      Config::SetBase(Config::MAIN_GBA_ROM_PATHS[Config::GBPLAYER_GBA_INDEX], Libretro::GBPlayer_rom_path);
-@@ -294,7 +309,31 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -294,7 +310,31 @@ bool retro_load_game(const struct retro_game_info* game)
    {
      Config::SetBase(Config::MAIN_GBA_ROM_PATHS[Config::GBPLAYER_GBA_INDEX], std::string{});
    }
@@ -4010,7 +4040,7 @@ index c53281053f..e2260dc848 100644
    Discord::SetDiscordPresenceEnabled(false);
    Common::SetEnableAlert(false);
    Common::SetAbortOnPanicAlert(false);
-@@ -303,6 +342,18 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -303,6 +343,18 @@ bool retro_load_game(const struct retro_game_info* game)
    {
      // Log the message instead of showing a popup
      WARN_LOG_FMT(COMMON, "Suppressed popup: {} - {}", caption, text);
@@ -4029,7 +4059,7 @@ index c53281053f..e2260dc848 100644
      Libretro::Log::LogFrontEnd(style, caption, text, 2000);
      return true; // Always "continue"
    });
-@@ -357,6 +408,30 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -357,6 +409,30 @@ bool retro_load_game(const struct retro_game_info* game)
  #endif
    Config::SetBase(Config::MAIN_ACCURATE_CPU_CACHE,
      Libretro::GetOption<bool>(core::MAIN_ACCURATE_CPU_CACHE, /*def=*/false));
@@ -4060,7 +4090,28 @@ index c53281053f..e2260dc848 100644
  
    Config::SetBase(Config::MAIN_DSP_HLE,
                       Libretro::GetOption<bool>(audio::DSP_HLE, /*def=*/true));
-@@ -496,6 +571,17 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -377,7 +453,11 @@ bool retro_load_game(const struct retro_game_info* game)
+   Config::SetBase(Config::SYSCONF_LANGUAGE, language);
+   Config::SetBase(Config::MAIN_GC_LANGUAGE, DiscIO::ToGameCubeLanguage(static_cast<DiscIO::Language>(language)));
+ 
+-  Config::SetBase(Config::MAIN_DPL2_DECODER, false);
++  // Porpoise: Dolphin's default DPL2 quality (High, 2048-sample FFT blocks) for
++  // clean spectral separation; Porpoise sizes the MixerFifo buffer accordingly.
++  const bool audio_surround = Libretro::GetOption<bool>(audio::SURROUND, /*def=*/false);
++  Config::SetBase(Config::MAIN_DPL2_DECODER, audio_surround);
++  Config::SetBase(Config::MAIN_DPL2_QUALITY, AudioCommon::DPL2Quality::High);
+   Config::SetBase(Config::MAIN_AUDIO_LATENCY, 0);
+   Config::SetBase(Config::MAIN_AUDIO_FILL_GAPS, false);
+ 
+@@ -450,6 +530,7 @@ bool retro_load_game(const struct retro_game_info* game)
+                  Libretro::GetOption<bool>(sysconf::PROGRESSIVE_SCAN, /*def=*/true));
+   Config::SetBase(Config::SYSCONF_PAL60,
+                  Libretro::GetOption<bool>(sysconf::PAL60, /*def=*/true));
++  Config::SetBase(Config::SYSCONF_SOUND_MODE, audio_surround ? 2u : 1u);
+ 
+   // SYSCONF.BT
+   Config::SetBase(Config::SYSCONF_SENSOR_BAR_POSITION,
+@@ -496,6 +577,17 @@ bool retro_load_game(const struct retro_game_info* game)
  
    Config::SetBase(Config::GFX_WAIT_FOR_SHADERS_BEFORE_STARTING,
      Libretro::GetOption<bool>(gfx_settings::WAIT_FOR_SHADERS, /*def=*/false));
@@ -4078,7 +4129,7 @@ index c53281053f..e2260dc848 100644
  
    if (Common::is_uwp())
      Config::SetBase(Config::GFX_SHADER_CACHE, false);
-@@ -646,6 +732,10 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -646,6 +738,10 @@ bool retro_load_game(const struct retro_game_info* game)
    NOTICE_LOG_FMT(BOOT, "CPU Core: {}", Libretro::Options::CPUCoreToString(Config::Get(Config::MAIN_CPU_CORE)));
    NOTICE_LOG_FMT(BOOT, "Fastmem enabled = {}", (Config::Get(Config::MAIN_FASTMEM)) ? "Yes" : "No");
    NOTICE_LOG_FMT(BOOT, "JIT debug enabled = {}", Config::IsDebuggingEnabled() ? "Yes" : "No");
@@ -4089,7 +4140,7 @@ index c53281053f..e2260dc848 100644
  
    Libretro::FrameTiming::Init();
    Libretro::Audio::Init();
-@@ -687,6 +777,29 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -687,6 +783,29 @@ bool retro_load_game(const struct retro_game_info* game)
      }
    }
  
@@ -4119,7 +4170,7 @@ index c53281053f..e2260dc848 100644
    for (auto& normalized_game_path : normalized_game_paths)
      Libretro::disk_paths.push_back(Libretro::VFile::DenormalizePath(normalized_game_path));
  
-@@ -708,16 +821,158 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -708,16 +827,158 @@ bool retro_load_game(const struct retro_game_info* game)
    const bool disc_based_games_boot_to_wii_menu = Libretro::GetOption<bool>(Libretro::Options::core::DISC_BASED_GAMES_BOOT_TO_WII_MENU, false);
    std::unique_ptr<BootParameters> boot_params = BootParameters::GenerateFromFile(normalized_game_paths);
  
@@ -4282,7 +4333,7 @@ index c53281053f..e2260dc848 100644
      }
  
      const std::string wii_menu_tmd_file_name = Common::GetTMDFileName(Titles::SYSTEM_MENU, Common::FromWhichRoot::Configured);
-@@ -727,17 +982,45 @@ bool retro_load_game(const struct retro_game_info* game)
+@@ -727,17 +988,45 @@ bool retro_load_game(const struct retro_game_info* game)
  
      if (is_disc_title && wii_menu_installed)
      {
@@ -4330,7 +4381,7 @@ index c53281053f..e2260dc848 100644
    Libretro::Input::InitStage2();
  
    const bool importCheats = Libretro::GetOption<bool>(retroarch_core::CHEATS_IMPORT, true);
-@@ -804,6 +1087,7 @@ void retro_unload_game(void)
+@@ -804,6 +1093,7 @@ void retro_unload_game(void)
  
      Core::Shutdown(system);
    }
@@ -4338,7 +4389,7 @@ index c53281053f..e2260dc848 100644
  
    if (!g_context_status.IsDestroyed() && g_video_backend)
      g_video_backend->Shutdown();
-@@ -841,6 +1125,12 @@ static bool retro_set_eject_state(bool ejected)
+@@ -841,6 +1131,12 @@ static bool retro_set_eject_state(bool ejected)
  
    eject_state = ejected;
  
@@ -4351,7 +4402,7 @@ index c53281053f..e2260dc848 100644
    Core::RunOnCPUThread(Core::System::GetInstance(), [ejected] {
      auto& system = Core::System::GetInstance();
      Core::CPUThreadGuard guard{system};
-@@ -853,6 +1143,8 @@ static bool retro_set_eject_state(bool ejected)
+@@ -853,6 +1149,8 @@ static bool retro_set_eject_state(bool ejected)
        system.GetDVDInterface().ChangeDisc(guard, path);
      }
    }, true); // wait_for_completion = true
@@ -4360,7 +4411,7 @@ index c53281053f..e2260dc848 100644
  
    return true;
  }
-@@ -864,6 +1156,11 @@ static bool retro_get_eject_state()
+@@ -864,6 +1162,11 @@ static bool retro_get_eject_state()
  
  static unsigned retro_get_image_index()
  {
@@ -4384,7 +4435,7 @@ index 50497a7171..2e5629cfa6 100644
    Boot.cpp
    Host.cpp
 diff --git a/Source/Core/DolphinLibretro/Common/Options.cpp b/Source/Core/DolphinLibretro/Common/Options.cpp
-index 52791da8de..9197de420f 100644
+index 52791da8de..c045fc5623 100644
 --- a/Source/Core/DolphinLibretro/Common/Options.cpp
 +++ b/Source/Core/DolphinLibretro/Common/Options.cpp
 @@ -1,6 +1,13 @@
@@ -4453,7 +4504,28 @@ index 52791da8de..9197de420f 100644
    {
      Libretro::Options::core::CHEATS_ENABLED,
      "Core > Internal Cheats",
-@@ -1876,9 +1928,61 @@ void Init()
+@@ -556,6 +608,20 @@ static struct retro_core_option_v2_definition option_defs[] = {
+   },
+ 
+   // ========== Main.DSP ==========
++  {
++    Libretro::Options::audio::SURROUND,
++    "Audio / DSP > Surround Sound",
++    "Surround Sound",
++    "Enable Dolby Pro Logic II surround decoding and Wii Surround sound mode.",
++    nullptr,
++    CATEGORY_AUDIO,
++    {
++      { "disabled", nullptr },
++      { "enabled",  nullptr },
++      { nullptr, nullptr }
++    },
++    "disabled"
++  },
+   {
+     Libretro::Options::audio::DSP_HLE,
+     "Audio / DSP > DSP HLE",
+@@ -1876,9 +1942,61 @@ void Init()
    CheckForUpdatedVariables();
  }
  
@@ -4516,7 +4588,7 @@ index 52791da8de..9197de420f 100644
    struct retro_core_options_v2 options_us = {
      const_cast<retro_core_option_v2_category*>(option_cats),
 diff --git a/Source/Core/DolphinLibretro/Common/Options.h b/Source/Core/DolphinLibretro/Common/Options.h
-index 0601c80065..e051ee8d9c 100644
+index 0601c80065..004b98e44f 100644
 --- a/Source/Core/DolphinLibretro/Common/Options.h
 +++ b/Source/Core/DolphinLibretro/Common/Options.h
 @@ -140,6 +140,20 @@ namespace core {
@@ -4540,6 +4612,14 @@ index 0601c80065..e051ee8d9c 100644
    constexpr const char CHEATS_ENABLED[] = "dolphin_cheats_enabled";
    constexpr const char SKIP_GC_BIOS[] = "dolphin_skip_gc_bios";
    constexpr const char DISC_BASED_GAMES_BOOT_TO_WII_MENU[] = "dolphin_disc_based_games_boot_to_wii_menu";
+@@ -154,6 +168,7 @@ namespace core {
+ // Audio / DSP
+ // ======================================================
+   namespace audio {
++  constexpr const char SURROUND[] = "dolphin_audio_surround";
+   constexpr const char DSP_HLE[] = "dolphin_dsp_hle";
+   constexpr const char DSP_JIT[] = "dolphin_dsp_jit";
+   constexpr const char CALL_BACK_AUDIO[] = "dolphin_call_back_audio_method";
 diff --git a/Source/Core/DolphinLibretro/Common/VFile.cpp b/Source/Core/DolphinLibretro/Common/VFile.cpp
 index 26ef8b1278..c4f4ef190b 100644
 --- a/Source/Core/DolphinLibretro/Common/VFile.cpp

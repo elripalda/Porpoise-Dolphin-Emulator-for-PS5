@@ -1678,11 +1678,14 @@ Exit run_game(const char *game_path, const Paths &paths, const Hooks &hooks, con
     if (playback.audio_pull)
     {
         auto pull = reinterpret_cast<porpoise::audio::PullFn>(ps5_core_dlsym(h.library, "porpoise_audio_pull"));
+        auto pull_surround = reinterpret_cast<porpoise::audio::PullSurroundFn>(
+            ps5_core_dlsym(h.library, "porpoise_audio_pull_surround"));
         auto queue = reinterpret_cast<porpoise::audio::QueueFn>(ps5_core_dlsym(h.library, "porpoise_audio_queue"));
         auto config =
             reinterpret_cast<porpoise::audio::ConfigFn>(ps5_core_dlsym(h.library, "porpoise_audio_pull_config"));
         if (pull && queue && config)
-            porpoise::audio::start_pull(pull, queue, config, playback.audio_buffer_ms, playback.audio_fill);
+            porpoise::audio::start_pull(pull, pull_surround, queue, config, playback.audio_buffer_ms,
+                                        playback.audio_fill, playback.audio_surround);
         else
             ps5::debug::mark("core: no audio pull in this core: its sound is pushed (Classic)");
     }

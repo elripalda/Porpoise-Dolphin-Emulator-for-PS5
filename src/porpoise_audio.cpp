@@ -4,8 +4,9 @@
  *
  * AudioOut calls and their order follow Mihawk's PS5 RetroArch (src/audio_ps5.cpp),
  * which follows ProsperoLight's moonlight_stream.cpp (GPL-3.0-or-later): a
- * 48 kHz stereo s16 port written 256 frames at a time by its own thread, the
- * blocking write being what paces it.
+ * 48 kHz s16 port written 256 frames at a time by its own thread, the blocking
+ * write being what paces it. Opened as 8-channel (5.1 surround mirrored to
+ * both side and rear beds) with stereo fallback.
  *
  * Dolphin pushes samples at its own rate once a frame (32 kHz by default). They
  * are resampled to 48 kHz here, linearly, with a ratio nudged by at most 0.5%
@@ -45,6 +46,8 @@ namespace
 constexpr unsigned out_rate = 48000;
 constexpr std::size_t grain = 256;                 /* frames per AudioOut write */
 constexpr std::size_t ring_frames = 16384;         /* ~340 ms */
+constexpr std::uint32_t format_s16_stereo = 1;     /* SCE_AUDIO_OUT_PARAM_FORMAT_S16_STEREO */
+constexpr std::uint32_t format_s16_8ch = 2;        /* SCE_AUDIO_OUT_PARAM_FORMAT_S16_8CH */
 std::size_t g_target_frames = 2304;                  /* ~48 ms queued (Settings > Audio > Audio buffer) */
 bool stretching = false;                           /* Settings > Audio > Audio stretching */
 constexpr std::uint32_t already_initialized = 0x8026000e;
@@ -57,9 +60,12 @@ struct Audio
     std::atomic<bool> stop{false};
     std::atomic<bool> dead{false}; /* the port refused a write: no one is listening any more */
     int port = -1;
+    int output_channels = 8;
     std::int16_t ring[ring_frames * 2] = {};
     std::size_t head = 0, count = 0; /* guarded by mutex */
-    alignas(16) std::int16_t out[grain * 2] = {};
+    alignas(16) std::int16_t out[grain * 8] = {};
+    alignas(16) std::int16_t stereo_tmp[grain * 2] = {};
+    alignas(16) float surround_tmp[grain * 6] = {};
     /* Resampler, touched only by push(). */
     double source_rate = 32000.0;
     double position = 0.0;            /* fractional read position between prev and next */
@@ -71,23 +77,38 @@ struct Audio
      * after). */
     pthread_mutex_t pull_lock = PTHREAD_MUTEX_INITIALIZER;
     porpoise::audio::PullFn pull = nullptr;
+    porpoise::audio::PullSurroundFn pull_surround = nullptr;
     porpoise::audio::QueueFn queue = nullptr;
     porpoise::audio::ConfigFn config = nullptr;
     std::atomic<bool> pull_paused{false};
     std::atomic<bool> fast_forward{false};
+    std::atomic<bool> surround{false};
+    int pull_buffer_ms = 80;
+    bool pull_fill_gaps = true;
     double rate_error = 0.0; /* the mixer queue's distance from its aim, smoothed (worker only) */
     std::atomic<unsigned> gaps{0}; /* grains the mixer had no new sound for (for the log) */
 };
 
 Audio *g = nullptr;
 
+int effective_pull_buffer_ms(const Audio &a)
+{
+    const bool dpl2 = a.output_channels == 8 && a.pull_surround != nullptr &&
+                      a.surround.load(std::memory_order_relaxed);
+    /* DPL2 High decodes 2048-frame blocks (~42.7 ms at 48 kHz); keep at least
+     * 120 ms buffered (aim ~72 ms) so a 2048-frame pull never drains the FIFO. */
+    return dpl2 ? std::max(a.pull_buffer_ms, 120) : a.pull_buffer_ms;
+}
+
 void *worker(void *)
 {
     Audio &a = *g;
+    const int out_ch = a.output_channels;
     while (!a.stop.load(std::memory_order_relaxed))
     {
         /* The game's sound, from the core's mixer (start_pull). */
         bool pulled = false;
+        bool pulled_surround = false;
         pthread_mutex_lock(&a.pull_lock);
         if (a.pull && !a.pull_paused.load(std::memory_order_relaxed))
         {
@@ -106,51 +127,114 @@ void *worker(void *)
             /* A fuller queue: tell the mixer it plays slightly slower, so it
              * takes slightly more of the game's sound per frame. */
             const double factor = 1.0 - std::clamp(a.rate_error * 0.004, -0.004, 0.004);
-            const std::size_t got = a.pull(a.out, grain, unsigned(std::lround(out_rate * factor)));
-            if (got < grain)
-                std::memset(a.out + got * 2, 0, (grain - got) * 2 * sizeof(std::int16_t));
-            if (a.fast_forward.load(std::memory_order_relaxed))
-                std::memset(a.out, 0, sizeof a.out); /* drained, not heard */
+            const unsigned rate = static_cast<unsigned>(std::lround(out_rate * factor));
+            const bool want_surround = out_ch == 8 && a.pull_surround != nullptr &&
+                                       a.surround.load(std::memory_order_relaxed);
+            if (want_surround)
+            {
+                const std::size_t got = a.pull_surround(a.surround_tmp, grain, rate);
+                if (got < grain)
+                    std::memset(a.surround_tmp + got * 6, 0, (grain - got) * 6 * sizeof(float));
+                if (a.fast_forward.load(std::memory_order_relaxed))
+                    std::memset(a.surround_tmp, 0, sizeof a.surround_tmp);
+                /* Dolphin SurroundDecoder order: 0 FL, 1 FR, 2 FC, 3 LFE, 4 BL, 5 BR.
+                 * PS5 S16_8CH order: 0 FL, 1 FR, 2 FC, 3 LFE, 4 LS, 5 RS, 6 LRS, 7 RRS.
+                 * Mirror BL/BR to both side and rear beds for 5.1 / 7.1 / Atmos. */
+                for (std::size_t s = 0; s < grain; ++s)
+                {
+                    const float *in = &a.surround_tmp[s * 6];
+                    std::int16_t *dst = &a.out[s * 8];
+                    for (int c = 0; c < 6; ++c)
+                        dst[c] = static_cast<std::int16_t>(std::clamp(in[c], -1.0f, 1.0f) * 32767.0f);
+                    dst[6] = dst[4];
+                    dst[7] = dst[5];
+                }
+                pulled_surround = true;
+            }
+            else
+            {
+                std::int16_t *dst = out_ch == 2 ? a.out : a.stereo_tmp;
+                const std::size_t got = a.pull(dst, grain, rate);
+                if (got < grain)
+                    std::memset(dst + got * 2, 0, (grain - got) * 2 * sizeof(std::int16_t));
+                if (a.fast_forward.load(std::memory_order_relaxed))
+                    std::memset(dst, 0, grain * 2 * sizeof(std::int16_t)); /* drained, not heard */
+            }
             pulled = true;
         }
         pthread_mutex_unlock(&a.pull_lock);
-        if (pulled)
+        if (pulled_surround)
         {
-            /* Porpoise's own sounds (the in-game menu's) on top. */
-            pthread_mutex_lock(&a.mutex);
-            const std::size_t take = std::min(grain, a.count);
-            std::size_t tail = (a.head + ring_frames - a.count) % ring_frames;
-            for (std::size_t i = 0; i < take * 2; i += 2)
-            {
-                a.out[i] = std::int16_t(std::clamp(int(a.out[i]) + a.ring[tail * 2], -32768, 32767));
-                a.out[i + 1] = std::int16_t(std::clamp(int(a.out[i + 1]) + a.ring[tail * 2 + 1], -32768, 32767));
-                tail = (tail + 1) % ring_frames;
-            }
-            a.count -= take;
-            pthread_mutex_unlock(&a.mutex);
-        }
-        else
-        {
+            /* Porpoise's own sounds (the in-game menu's) onto FL/FR. */
             pthread_mutex_lock(&a.mutex);
             const std::size_t take = std::min(grain, a.count);
             std::size_t tail = (a.head + ring_frames - a.count) % ring_frames;
             for (std::size_t i = 0; i < take; ++i)
             {
-                a.out[i * 2] = a.ring[tail * 2];
-                a.out[i * 2 + 1] = a.ring[tail * 2 + 1];
+                a.out[i * 8 + 0] = std::int16_t(std::clamp(int(a.out[i * 8 + 0]) + a.ring[tail * 2], -32768, 32767));
+                a.out[i * 8 + 1] =
+                    std::int16_t(std::clamp(int(a.out[i * 8 + 1]) + a.ring[tail * 2 + 1], -32768, 32767));
+                tail = (tail + 1) % ring_frames;
+            }
+            a.count -= take;
+            pthread_mutex_unlock(&a.mutex);
+        }
+        else if (pulled)
+        {
+            std::int16_t *dst = out_ch == 2 ? a.out : a.stereo_tmp;
+            pthread_mutex_lock(&a.mutex);
+            const std::size_t take = std::min(grain, a.count);
+            std::size_t tail = (a.head + ring_frames - a.count) % ring_frames;
+            for (std::size_t i = 0; i < take * 2; i += 2)
+            {
+                dst[i] = std::int16_t(std::clamp(int(dst[i]) + a.ring[tail * 2], -32768, 32767));
+                dst[i + 1] = std::int16_t(std::clamp(int(dst[i + 1]) + a.ring[tail * 2 + 1], -32768, 32767));
+                tail = (tail + 1) % ring_frames;
+            }
+            a.count -= take;
+            pthread_mutex_unlock(&a.mutex);
+            if (out_ch == 8)
+            {
+                std::memset(a.out, 0, sizeof a.out);
+                for (std::size_t i = 0; i < grain; ++i)
+                {
+                    a.out[i * 8 + 0] = dst[i * 2 + 0];
+                    a.out[i * 8 + 1] = dst[i * 2 + 1];
+                }
+            }
+        }
+        else
+        {
+            std::int16_t *dst = out_ch == 2 ? a.out : a.stereo_tmp;
+            pthread_mutex_lock(&a.mutex);
+            const std::size_t take = std::min(grain, a.count);
+            std::size_t tail = (a.head + ring_frames - a.count) % ring_frames;
+            for (std::size_t i = 0; i < take; ++i)
+            {
+                dst[i * 2] = a.ring[tail * 2];
+                dst[i * 2 + 1] = a.ring[tail * 2 + 1];
                 tail = (tail + 1) % ring_frames;
             }
             a.count -= take;
             pthread_mutex_unlock(&a.mutex);
             if (take < grain)
-                std::memset(a.out + take * 2, 0, (grain - take) * 2 * sizeof(std::int16_t));
+                std::memset(dst + take * 2, 0, (grain - take) * 2 * sizeof(std::int16_t));
+            if (out_ch == 8)
+            {
+                std::memset(a.out, 0, sizeof a.out);
+                for (std::size_t i = 0; i < take; ++i)
+                {
+                    a.out[i * 8 + 0] = dst[i * 2 + 0];
+                    a.out[i * 8 + 1] = dst[i * 2 + 1];
+                }
+            }
         }
 
         const float volume = a.muted.load(std::memory_order_relaxed)
                                  ? 0.0f
                                  : a.volume.load(std::memory_order_relaxed);
         if (volume < 0.999f)
-            for (std::size_t i = 0; i < grain * 2; ++i)
+            for (std::size_t i = 0; i < grain * static_cast<std::size_t>(out_ch); ++i)
                 a.out[i] = static_cast<std::int16_t>(a.out[i] * volume);
 
         if (sceAudioOutOutput(a.port, a.out) < 0)
@@ -187,15 +271,25 @@ bool open()
         ps5::debug::mark_value("audio: sceAudioOutInit failed", init);
         return false;
     }
-    /* 0xff: the system user; type 0: main output; param 1: s16 stereo. */
-    g->port = sceAudioOutOpen(0xff, 0, 0, grain, out_rate, 1);
+    /* 0xff: the system user; type 0: main output; param 2: s16 8ch surround,
+     * falling back to param 1: s16 stereo if opening 8ch fails. */
+    g->output_channels = 8;
+    g->port = sceAudioOutOpen(0xff, 0, 0, grain, out_rate, format_s16_8ch);
+    if (g->port < 0)
+    {
+        ps5::debug::mark_value("audio: 8ch sceAudioOutOpen failed, falling back to stereo", g->port);
+        g->output_channels = 2;
+        g->port = sceAudioOutOpen(0xff, 0, 0, grain, out_rate, format_s16_stereo);
+    }
     if (g->port < 0)
     {
         ps5::debug::mark_value("audio: sceAudioOutOpen failed", g->port);
         return false;
     }
     g->thread_started = create_title_thread(&g->thread, worker, nullptr) == 0;
-    ps5::debug::mark_value("audio: 48 kHz port open, thread", g->thread_started ? 1 : 0);
+    ps5::debug::mark_value(g->output_channels == 8 ? "audio: 48 kHz 8ch port open, thread"
+                                                   : "audio: 48 kHz stereo port open, thread",
+                           g->thread_started ? 1 : 0);
     return g->thread_started;
 }
 
@@ -321,23 +415,31 @@ void flush()
     pthread_mutex_unlock(&g->mutex);
 }
 
-void start_pull(PullFn pull, QueueFn queue, ConfigFn config, int buffer_ms, bool fill_gaps)
+void start_pull(PullFn pull, PullSurroundFn pull_surround, QueueFn queue, ConfigFn config,
+                int buffer_ms, bool fill_gaps, bool surround)
 {
     if (!g || !pull)
         return;
-    if (config)
-        config(1, buffer_ms, fill_gaps ? 1 : 0);
     pthread_mutex_lock(&g->pull_lock);
     g->config = config;
     g->queue = queue;
     g->pull = pull;
+    g->pull_surround = pull_surround;
+    g->pull_buffer_ms = buffer_ms;
+    g->pull_fill_gaps = fill_gaps;
+    g->surround.store(surround, std::memory_order_relaxed);
+    const int effective_ms = effective_pull_buffer_ms(*g);
+    if (config)
+        config(1, effective_ms, fill_gaps ? 1 : 0);
     g->rate_error = 0.0;
     g->pull_paused = false;
     g->fast_forward = false;
     g->gaps = 0;
     pthread_mutex_unlock(&g->pull_lock);
     flush();
-    ps5::debug::mark_value("audio: the game's sound is pulled from Dolphin's mixer; buffer ms", buffer_ms);
+    ps5::debug::mark_value("audio: the game's sound is pulled from Dolphin's mixer; buffer ms", effective_ms);
+    if (surround && g->output_channels == 8 && pull_surround)
+        ps5::debug::mark("audio: 5.1 DPL2 surround pull active on 8ch output");
 }
 
 void set_pull_config(int buffer_ms, bool fill_gaps)
@@ -345,9 +447,32 @@ void set_pull_config(int buffer_ms, bool fill_gaps)
     if (!g)
         return;
     pthread_mutex_lock(&g->pull_lock);
+    g->pull_buffer_ms = buffer_ms;
+    g->pull_fill_gaps = fill_gaps;
     if (g->pull && g->config)
-        g->config(1, buffer_ms, fill_gaps ? 1 : 0);
+        g->config(1, effective_pull_buffer_ms(*g), fill_gaps ? 1 : 0);
     pthread_mutex_unlock(&g->pull_lock);
+}
+
+void set_surround(bool surround)
+{
+    if (!g)
+        return;
+    pthread_mutex_lock(&g->pull_lock);
+    g->surround.store(surround, std::memory_order_relaxed);
+    if (g->pull && g->config)
+        g->config(1, effective_pull_buffer_ms(*g), g->pull_fill_gaps ? 1 : 0);
+    pthread_mutex_unlock(&g->pull_lock);
+}
+
+bool surround()
+{
+    return g && g->surround.load(std::memory_order_relaxed);
+}
+
+bool surround_output()
+{
+    return g && g->output_channels == 8;
 }
 
 void stop_pull()
@@ -358,8 +483,10 @@ void stop_pull()
     if (g->config)
         g->config(0, 80, 1); /* the core pushes again, as before (the next game may be Classic) */
     g->pull = nullptr;
+    g->pull_surround = nullptr;
     g->queue = nullptr;
     g->config = nullptr;
+    g->surround.store(false, std::memory_order_relaxed);
     pthread_mutex_unlock(&g->pull_lock);
 }
 

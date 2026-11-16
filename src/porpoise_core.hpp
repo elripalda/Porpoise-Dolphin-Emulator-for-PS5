@@ -147,6 +147,7 @@ struct Playback
     bool audio_pull = true;
     int audio_buffer_ms = 80;
     bool audio_fill = true;
+    bool audio_surround = false;
 };
 /* The Wii Remote's settings changed in the in-game menu. */
 void set_wii(const porpoise::pad::WiiConfig &config);

@@ -7210,5 +7210,17 @@
  {
   "en": "The GameCube controller port your controller is in. For the few games that want it in another port for a moment (Metal Gear Solid: The Twin Snakes); change it from the in-game menu while playing. GameCube games only.",
   "section": "4.0 Beta 2: simpler Settings, Auto Boost, Star Cube, Smooth Edges, Player 1's Port"
+ },
+ {
+  "en": "Surround Sound",
+  "section": "Surround Sound"
+ },
+ {
+  "en": "Decodes 5.1 Dolby Pro Logic II surround sound (requires Sound Preset other than Classic). On Wii, sets console sound to Surround; some Nintendo games also need Accurate Audio.",
+  "section": "Surround Sound"
+ },
+ {
+  "en": "Decodes 5.1 Dolby Pro Logic II surround sound. On Wii, changing this from Off takes effect on the next start; some Nintendo games also need Accurate Audio.",
+  "section": "Surround Sound"
  }
 ]

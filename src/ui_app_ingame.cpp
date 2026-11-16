@@ -195,6 +195,8 @@ std::vector<Row> rows_for(int tab, Settings &p, bool wii = false, const Patches 
     {
         r.push_back({Kind::Int, "volume", "Volume", &p.volume, nullptr, 0, kPercent});
         r.push_back({Kind::Bool, "muted", "Mute Game", nullptr, &p.muted, 0, {"Off", "On"}});
+        if (g_sound_pulled)
+            r.push_back({Kind::Bool, "audio_surround", "Surround Sound", nullptr, &p.audio_surround, 0, {"Off", "On"}});
         g_audio_preset = p.audio_preset();
         std::vector<std::string> presets = {"Smooth", "Responsive", "Extra Smooth", "Classic (2.1)"};
         if (g_audio_preset == Settings::kAudioCustom)
@@ -357,6 +359,9 @@ const char *help_for(const Row &row, const Settings &p)
         return kGfxGoopHelp;
     if (row.key == std::string("audio_buffer"))
         return "How much sound is kept ready. More holds off crackling when a game slows down, for a little delay.";
+    if (row.key == std::string("audio_surround"))
+        return "Decodes 5.1 Dolby Pro Logic II surround sound. On Wii, changing this from Off takes effect on the "
+               "next start; some Nintendo games also need Accurate Audio.";
     if (row.key == std::string("audio_fill"))
         return "When a game runs slow, the sound it just played covers the gap, faded, instead of a crackle. Off "
                "leaves the gap silent.";
